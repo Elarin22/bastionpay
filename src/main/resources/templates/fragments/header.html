@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="header" class="site-top">
+  <div class="utility">
+    <div class="wrap utility__inner">
+      <p>교육용 테스트베드 프로젝트 · 실제 금융 거래가 이루어지지 않습니다</p>
+      <p class="utility__org">SKT ALEPH 보안 훈련과정</p>
+    </div>
+  </div>
+  <header class="site-header">
+    <div class="wrap site-header__inner">
+      <a class="brand" th:href="@{/}" aria-label="BastionPay 홈">
+        <svg class="brand__mark" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true" focusable="false"><path fill="currentColor" d="M5 28V8h5v4h3V8h6v4h3V8h5v20h-5v-8a6 6 0 0 0-12 0v8z"/></svg>
+        <span class="brand__name">BastionPay</span>
+      </a>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+        <span class="menu-toggle__label">메뉴</span>
+        <span class="menu-toggle__bars" aria-hidden="true"></span>
+      </button>
+      <nav class="site-nav" id="site-nav" aria-label="주요 메뉴">
+        <ul class="site-nav__list">
+          <li><a th:href="@{/#service}">서비스 소개</a></li>
+          <li><a th:href="@{/#features}">주요 기능</a></li>
+          <li><a th:href="@{/#start}">시작하기</a></li>
+        </ul>
+        <div class="site-nav__auth">
+          <a class="auth-link" th:href="@{/login}">로그인</a>
+          <a class="auth-link auth-link--strong" th:href="@{/signup}">회원가입</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+</div>
+</body>
+</html>
