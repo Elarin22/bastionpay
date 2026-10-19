@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('오픈뱅킹 연결', 'app-ui')}"></head>
+<body>
+<a class="skip-link" href="#main">본문 바로가기</a>
+<div th:replace="~{fragments/header :: header}"></div>
+<div th:replace="~{fragments/appnote :: note}"></div>
+<main id="main" class="app">
+  <div class="wrap">
+    <div class="app__inner">
+      <div class="app__head">
+        <h1>오픈뱅킹 연결</h1>
+        <p>금융결제원 오픈뱅킹에서 본인 인증을 마치면 다른 은행의 계좌도 한 곳에서 조회할 수 있습니다.</p>
+      </div>
+      <section class="block" aria-labelledby="h-flow">
+        <div class="block__head"><h2 id="h-flow">연결 순서</h2></div>
+        <div class="prose">
+          <ol class="flow">
+            <li>금융결제원 화면에서 본인 인증</li>
+            <li>조회·이체 이용 동의</li>
+            <li>연결할 계좌 선택</li>
+          </ol>
+          <p class="prose__sub">인증 정보(비밀번호 등)는 BastionPay가 받지 않습니다. 인증은 금융결제원 화면에서 이루어집니다.</p>
+        </div>
+        <button class="btn-line" type="button" disabled aria-describedby="connect-note">오픈뱅킹 계좌 연결</button>
+        <p class="field__hint" id="connect-note">오픈뱅킹 연동(3단계)을 구현하면 이 버튼이 활성화됩니다.</p>
+      </section>
+    </div>
+  </div>
+</main>
+<div th:replace="~{fragments/footer :: footer}"></div>
+</body>
+</html>

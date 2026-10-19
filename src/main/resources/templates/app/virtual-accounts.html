@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('가상계좌', 'app-ui')}"></head>
+<body>
+<a class="skip-link" href="#main">본문 바로가기</a>
+<div th:replace="~{fragments/header :: header}"></div>
+<div th:replace="~{fragments/appnote :: note}"></div>
+<main id="main" class="app">
+  <div class="wrap">
+    <div class="app__inner">
+    <div class="app__head">
+      <h1>가상계좌</h1>
+      <p>BastionPay 원장으로 관리하는 계좌입니다. 입금, 출금, 계좌 간 이체가 모두 원장에 기록됩니다.</p>
+    </div>
+
+    <div class="app__cols">
+      <section class="block" aria-labelledby="h-v">
+        <div class="block__head"><h2 id="h-v">내 가상계좌 <span class="count" th:text="${virtual.size()} + '개'">2개</span></h2></div>
+        <ul class="rows">
+          <li th:each="v : ${virtual}">
+            <a class="row" th:href="@{/virtual-accounts/{id}(id=${v.id})}">
+              <span class="row__main"><strong th:text="${v.alias}">별칭</strong><small class="num-text" th:text="${v.maskedNumber} + ' · ' + ${#temporals.format(v.issuedAt, 'yyyy.MM.dd')} + ' 발급'">BP-0000</small></span>
+              <span class="amount" th:text="${#numbers.formatInteger(v.balance, 3, 'COMMA')} + '원'">0원</span>
+            </a>
+          </li>
+          <li class="row row--sum"><span>합계</span><span class="amount" th:text="${#numbers.formatInteger(totalVirtual, 3, 'COMMA')} + '원'">0원</span></li>
+        </ul>
+      </section>
+
+      <section class="block" aria-labelledby="h-issue">
+        <div class="block__head"><h2 id="h-issue">새 가상계좌</h2></div>
+        <div class="prose">
+          <p>용도별로 가상계좌를 나눠 쓸 수 있습니다. 별칭을 정해 발급하면 계좌번호가 만들어집니다.</p>
+        </div>
+        <button class="btn-line" type="button" disabled aria-describedby="issue-note">가상계좌 발급</button>
+        <p class="field__hint" id="issue-note">가상계좌·원장(4단계)을 구현하면 발급할 수 있습니다.</p>
+      </section>
+    </div>
+  </div>
+  </div>
+</main>
+<div th:replace="~{fragments/footer :: footer}"></div>
+</body>
+</html>

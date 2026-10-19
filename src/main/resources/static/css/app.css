@@ -28,6 +28,7 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 html {
+  scrollbar-gutter: stable;   /* 스크롤바가 생기고 없어질 때 화면이 좌우로 밀리지 않게 */
   scroll-behavior: smooth;
   scroll-padding-top: 5rem;
   -webkit-text-size-adjust: 100%;
@@ -106,34 +107,78 @@ img, svg { display: block; max-width: 100%; }
 .auth-link:hover { color: var(--ink); background-size: 100% 1px; }
 .auth-link--strong { color: var(--ink); font-weight: 700; }
 
-/* ---------- utility bar + header ---------- */
+/* ---------- header ---------- */
 .site-top { display: contents; }
-.utility { background: var(--navy-950); color: var(--steel-300); font-size: 0.8125rem; }
-.utility__inner { display: flex; justify-content: space-between; gap: 1rem; padding-block: 0.5rem; line-height: 1.5; }
-.utility__org { white-space: nowrap; }
 
 .site-header {
   position: sticky; top: 0; z-index: 50;
   background: var(--white);
   border-bottom: 1px solid var(--line);
 }
-.site-header__inner { display: flex; align-items: center; justify-content: space-between; gap: 2rem; min-height: 4.5rem; }
+.site-header__inner { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 2rem; min-height: 4.5rem; }
+.brand { justify-self: start; }
 
 .brand { display: inline-flex; align-items: center; gap: 0.6rem; text-decoration: none; color: var(--navy-900); }
 .brand__name { font-size: 1.375rem; font-weight: 800; letter-spacing: -0.03em; }
 
-.site-nav { display: flex; align-items: center; gap: 2.5rem; flex: 1; justify-content: flex-end; }
-.site-nav__list { display: flex; gap: 2rem; }
+/* 넓은 화면: nav 자체는 레이아웃에서 빠지고, 가운데 목록과 오른쪽 인증 영역이 헤더 3단의 칸이 된다 */
+.site-nav { display: contents; }
+.site-nav-center { display: contents; }
+.site-actions { justify-self: end; display: flex; align-items: center; gap: 1.5rem; }
+.site-nav__list { display: flex; justify-content: center; gap: clamp(1.5rem, 3.5vw, 3.5rem); }
 .site-nav__list a {
   display: inline-block; padding: 0.4rem 0; text-decoration: none;
   font-weight: 600; font-size: 1rem; color: var(--ink);
   background: linear-gradient(var(--ink), var(--ink)) left bottom / 0 2px no-repeat;
   transition: background-size 0.3s var(--ease);
 }
-.site-nav__list a:hover { background-size: 100% 2px; }
-.site-nav__auth { display: flex; align-items: center; gap: 1.5rem; padding-left: 2rem; border-left: 1px solid var(--line); }
+.site-nav__list a:hover, .site-nav__list a.is-active { background-size: 100% 2px; }
+.site-nav__list a.is-active { font-weight: 800; }
+.site-nav__auth { justify-self: end; display: flex; align-items: center; gap: 1.5rem; }
 
 .menu-toggle { display: none; }
+/* 햄버거 아이콘: 가운데 줄 + 위·아래 줄(::before/::after) = 세 줄. 열리면 X 로 바뀐다 */
+.menu-toggle__bars, .menu-toggle__bars::before, .menu-toggle__bars::after {
+  display: block; width: 1.25rem; height: 2px; background: currentColor; border-radius: 1px;
+  transition: transform 0.3s var(--ease), top 0.3s var(--ease), background-color 0.2s var(--ease);
+}
+.menu-toggle__bars { position: relative; }
+.menu-toggle__bars::before, .menu-toggle__bars::after { content: ""; position: absolute; left: 0; }
+.menu-toggle__bars::before { top: -6px; }
+.menu-toggle__bars::after { top: 6px; }
+.menu-toggle[aria-expanded="true"] .menu-toggle__bars { background: transparent; }
+.menu-toggle[aria-expanded="true"] .menu-toggle__bars::before { top: 0; transform: rotate(45deg); }
+.menu-toggle[aria-expanded="true"] .menu-toggle__bars::after { top: 0; transform: rotate(-45deg); }
+/* 전체 메뉴 버튼은 넓은 화면에서도 보인다 */
+.menu-toggle--mega {
+  display: inline-flex; align-items: center; justify-content: center; width: 2.75rem; height: 2.75rem;
+  padding: 0; margin-right: -0.5rem; background: none; border: 0; cursor: pointer; color: var(--ink); border-radius: 2px;
+}
+.menu-toggle--mega:hover { background: var(--paper); }
+
+/* ---------- 전체 메뉴 (로그인 후) ---------- */
+.mega {
+  position: absolute; left: 0; right: 0; top: 100%; background: var(--white);
+  border-bottom: 1px solid var(--line); box-shadow: 0 24px 32px -24px rgba(6, 20, 40, 0.35);
+  max-height: calc(100vh - 4.5rem); overflow-y: auto; overscroll-behavior: contain;
+}
+.mega[hidden] { display: none; }
+.mega__inner { padding-block: 0.5rem 1.5rem; }
+.mega__group { display: grid; grid-template-columns: 11rem minmax(0, 1fr); gap: 1rem 2rem; padding-block: 1.75rem; border-top: 1px solid var(--line); }
+.mega__group:first-child { border-top: 0; }
+.mega__title { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.mega__list { display: grid; grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr)); gap: 1.4rem 2rem; }
+.mega__list a { display: block; padding: 0.15rem 0; text-decoration: none; color: inherit; }
+.mega__name { display: block; font-size: 1.0625rem; font-weight: 700; background: linear-gradient(var(--ink), var(--ink)) left bottom / 0 2px no-repeat; width: fit-content; transition: background-size 0.3s var(--ease); }
+.mega__list a:hover .mega__name, .mega__list a[aria-current="page"] .mega__name { background-size: 100% 2px; }
+.mega__desc { display: block; margin-top: 0.15rem; font-size: 0.875rem; color: var(--ink-2); }
+.mega__foot { display: none; }
+@media (max-width: 52rem) {
+  .mega__group { grid-template-columns: minmax(0, 1fr); padding-block: 1.25rem; }
+  .mega__title { font-size: 1.25rem; }
+  .mega__list { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+  .mega__foot { display: flex; justify-content: space-between; align-items: center; padding-top: 1.25rem; border-top: 1px solid var(--line); }
+}
 
 /* ---------- hero ---------- */
 .hero { background: var(--navy-900); color: var(--white); }
@@ -244,8 +289,9 @@ img, svg { display: block; max-width: 100%; }
 }
 
 @media (max-width: 52rem) {
-  .utility__org { display: none; }
-  .site-header__inner { min-height: 4rem; }
+  .site-header__inner { display: flex; justify-content: space-between; min-height: 4rem; }
+  .site-nav-center, .site-actions .auth-user, .site-actions .auth-form { display: none; }
+  .mega { max-height: calc(100vh - 4rem); }
 
   .menu-toggle {
     display: inline-flex; align-items: center; gap: 0.6rem;
@@ -253,13 +299,6 @@ img, svg { display: block; max-width: 100%; }
     background: none; border: 0; cursor: pointer; color: var(--ink);
     font: inherit; font-weight: 600; font-size: 0.9375rem;
   }
-  .menu-toggle__bars, .menu-toggle__bars::before {
-    display: block; width: 1.25rem; height: 2px; background: currentColor; position: relative;
-    transition: transform 0.3s var(--ease);
-  }
-  .menu-toggle__bars::before { content: ""; position: absolute; top: -6px; left: 0; }
-  .menu-toggle[aria-expanded="true"] .menu-toggle__bars { transform: translateY(0) rotate(45deg); }
-  .menu-toggle[aria-expanded="true"] .menu-toggle__bars::before { top: 0; transform: rotate(90deg); }
 
   .site-nav {
     display: none; position: absolute; left: 0; right: 0; top: 100%;
@@ -278,3 +317,9 @@ img, svg { display: block; max-width: 100%; }
   .ledger__table td { white-space: normal; }
   .hero__actions .btn { flex: 1 1 100%; }
 }
+
+/* ---------- 로그인 상태 헤더 ---------- */
+.auth-user { font-size: 0.9375rem; color: var(--ink-2); }
+.auth-user strong { color: var(--ink); font-weight: 700; }
+.auth-form { margin: 0; }
+.auth-link--button { font-family: inherit; background-color: transparent; border: 0; cursor: pointer; }

@@ -18,3 +18,10 @@ logging:
   level:
     com.san.bastionpay: DEBUG
     com.zaxxer.hikari: INFO
+
+app:
+  mail:
+    log-code: true            # SMTP 미설정 시 인증 코드를 콘솔에서 확인 (dev 전용)
+  jwt:
+    cookie:
+      secure: false           # http://localhost 에서도 쿠키 동작 (HTTPS 적용 후 true)

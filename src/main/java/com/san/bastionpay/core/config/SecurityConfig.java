@@ -1,23 +1,38 @@
 package com.san.bastionpay.core.config;
 
+import com.san.bastionpay.auth.AuthCookies;
+import com.san.bastionpay.auth.JwtAuthenticationFilter;
+import com.san.bastionpay.auth.RefreshTokenService;
+import com.san.bastionpay.core.security.CustomAccessDeniedHandler;
+import com.san.bastionpay.core.security.CustomAuthenticationEntryPoint;
+import com.san.bastionpay.auth.JwtService;
 import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 
 /**
- * 메인 화면 확인용 최소 구성. JWT 필터, 예외 핸들러는 1단계에서 추가한다.
+ * Access Token 쿠키 인증 필터(Refresh Rotation 포함)까지 연결한 구성. 미인증(401)·권한 부족(403) 핸들러를 연결한 구성.
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity   // @PreAuthorize 사용
 public class SecurityConfig {
 
     private static final String CSP = String.join("; ",
@@ -42,20 +57,52 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /** 자체 JWT 인증을 쓰므로, Boot 가 임시 비밀번호를 로그에 찍는 기본 사용자를 만들지 않게 막는다. */
+    @Bean
+    UserDetailsService userDetailsService() {
+        return username -> {
+            throw new UsernameNotFoundException("not supported");
+        };
+    }
+
+    /**
+     * 등급끼리만 포함 관계를 둔다: VVIP 는 VIP 와 STANDARD 기능을 모두 쓸 수 있다.
+     * ADMIN(권한)은 등급과 분리되어 있어 어떤 등급도 상속하지 않는다.
+     * 사용: @PreAuthorize("hasAuthority('TIER_VIP')")
+     */
+    @Bean
+    RoleHierarchy roleHierarchy() {
+        return RoleHierarchyImpl.fromHierarchy("TIER_VVIP > TIER_VIP\nTIER_VIP > TIER_STANDARD");
+    }
+
+    @Bean
+    PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder(12);
+    }
+
     @Bean
     @Order(2)
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, JwtService jwtService,
+                                            RefreshTokenService refreshTokens, AuthCookies cookies,
+                                            CustomAuthenticationEntryPoint entryPoint,
+                                            CustomAccessDeniedHandler accessDeniedHandler) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
                         // 에러 디스패치를 막으면 에러 페이지 자체가 401/403으로 가려진다
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
-                        .requestMatchers("/", "/login", "/signup", "/error",
+                        .requestMatchers("/", "/login", "/logout", "/signup", "/signup/**", "/error",
                                 "/css/**", "/js/**", "/img/**", "/fonts/**", "/favicon.ico").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/actuator/**").denyAll()
+                        .requestMatchers("/admin/**").hasRole("ADMIN")   // 보안 대시보드·티켓·IP 차단 등 관리자 전용
                         .anyRequest().authenticated())
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
+                .logout(AbstractHttpConfigurer::disable)   // POST /logout 은 AuthController 가 토큰 쿠키를 지운다
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(entryPoint)
+                        .accessDeniedHandler(accessDeniedHandler))
+                .addFilterBefore(new JwtAuthenticationFilter(jwtService, refreshTokens, cookies), AuthorizationFilter.class)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .csrf(csrf -> csrf.csrfTokenRepository(new CookieCsrfTokenRepository()))
                 .headers(headers -> headers

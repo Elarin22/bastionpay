@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('예금', 'app-ui')}"></head>
+<body>
+<a class="skip-link" href="#main">본문 바로가기</a>
+<div th:replace="~{fragments/header :: header}"></div>
+<div th:replace="~{fragments/appnote :: note}"></div>
+<main id="main" class="app">
+  <div class="wrap">
+    <div class="app__inner">
+      <div class="app__head">
+        <h1>예금</h1>
+        <p>가입한 예금 상품입니다. 만기일과 금리를 한눈에 확인하세요.</p>
+      </div>
+      <section class="block" aria-labelledby="h-d">
+        <div class="block__head"><h2 id="h-d">가입 상품 <span class="count" th:text="${deposits.size()} + '개'">2개</span></h2></div>
+        <ul class="rows">
+          <li class="product" th:each="d : ${deposits}">
+            <div class="product__top">
+              <span class="row__main"><strong th:text="${d.bank} + ' ' + ${d.name}">상품</strong><small class="num-text" th:text="${d.maskedNumber}">120-***-000000</small></span>
+              <span class="amount" th:text="${#numbers.formatInteger(d.principal, 3, 'COMMA')} + '원'">0원</span>
+            </div>
+            <dl class="meta">
+              <div><dt>연 금리</dt><dd th:text="${d.rate} + '%'">3.45%</dd></div>
+              <div><dt>가입일</dt><dd th:text="${#temporals.format(d.startDate, 'yyyy.MM.dd')}">2026.01.01</dd></div>
+              <div><dt>만기일</dt><dd th:text="${#temporals.format(d.maturityDate, 'yyyy.MM.dd')}">2027.01.01</dd></div>
+            </dl>
+          </li>
+          <li class="row row--sum"><span>합계</span><span class="amount" th:text="${#numbers.formatInteger(total, 3, 'COMMA')} + '원'">0원</span></li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</main>
+<div th:replace="~{fragments/footer :: footer}"></div>
+</body>
+</html>
