@@ -61,4 +61,4 @@ Thumbs.db
 *.sql.gz
 *.dump
 .claude/settings.local.json
-checklist.md
+*.checklist.md
