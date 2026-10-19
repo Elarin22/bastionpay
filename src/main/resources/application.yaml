@@ -34,6 +34,19 @@ spring:
     baseline-on-migrate: false
     validate-on-migrate: true     # 체크섬 변조 탐지
 
+  mail:                           # Gmail SMTP (계정 정보는 .env 의 MAIL_USERNAME / MAIL_PASSWORD)
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}   # 계정 비밀번호가 아닌 Google '앱 비밀번호'
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
   thymeleaf:
     cache: true
     mode: HTML
@@ -74,12 +87,21 @@ logging:
     com.san.bastionpay: INFO
 
 app:
+  mail:
+    from: ${MAIL_USERNAME:no-reply@bastionpay.local}   # Gmail 은 보내는 주소를 로그인 계정으로 고정한다
+    log-code: false                   # true 면 인증 코드를 로그에 출력 (dev 전용)
+  signup:
+    code-ttl: 10m                     # 인증 코드 유효 시간
+    code-max-attempts: 5              # 코드 입력 실패 허용 횟수
+    resend-interval: 60s              # 재전송 대기 시간
+    request-ttl: 30m                  # 가입 진행 상태 보관 시간
   logging:
     slow-request-ms: 1000          # RequestTimingInterceptor 임계값
   jwt:
     secret: ${JWT_SECRET}          # 환경변수 주입 필수, 커밋 금지
     access-token-ttl: 10m
-    refresh-token-ttl: 7d
+    refresh-token-ttl: 7d          # 로그인 시점 기준 절대 만료 (회전해도 늘어나지 않음)
+    refresh-reuse-grace: 5s        # 방금 회전된 토큰의 동시 요청은 탈취로 보지 않는 유예 시간
     cookie:
       secure: true
       same-site: Strict

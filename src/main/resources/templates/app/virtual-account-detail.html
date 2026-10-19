@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(${account.alias}, 'app-ui')}"></head>
+<body>
+<a class="skip-link" href="#main">본문 바로가기</a>
+<div th:replace="~{fragments/header :: header}"></div>
+<div th:replace="~{fragments/appnote :: note}"></div>
+<main id="main" class="app">
+  <div class="wrap">
+    <div class="app__inner">
+    <a class="back-link" th:href="@{/virtual-accounts}">가상계좌</a>
+    <div class="app__head">
+      <h1 th:text="${account.alias}">별칭</h1>
+      <p class="num-text" th:text="${account.maskedNumber} + ' · ' + ${account.status}">BP-0000 · 사용 중</p>
+    </div>
+
+    <dl class="facts">
+      <div class="facts__item"><dt>잔액</dt><dd class="amount amount--lg" th:text="${#numbers.formatInteger(account.balance, 3, 'COMMA')} + '원'">0원</dd></div>
+      <div class="facts__item"><dt>발급일</dt><dd class="amount amount--lg" th:text="${#temporals.format(account.issuedAt, 'yyyy.MM.dd')}">2026.01.01</dd></div>
+    </dl>
+
+    <section class="block" aria-labelledby="h-ledger">
+      <div class="block__head"><h2 id="h-ledger">원장 내역</h2></div>
+      <table class="tx">
+        <caption class="sr-only">원장 내역</caption>
+        <thead><tr><th scope="col">일시</th><th scope="col">내용</th><th scope="col" class="num">금액</th><th scope="col" class="num">거래 후 잔액</th></tr></thead>
+        <tbody>
+          <tr th:each="t : ${txs}">
+            <td class="tx__date" data-label="일시" th:text="${#temporals.format(t.at, 'yyyy.MM.dd HH:mm')}">2026.01.01 09:00</td>
+            <td class="tx__memo" data-label="내용"><span class="memo"><span th:text="${t.memo}">내용</span><span class="tag" th:text="${t.deposit} ? '입금' : '출금'">입금</span></span></td>
+            <td class="num amount" data-label="금액" th:classappend="${t.deposit} ? 'amount--in'"
+                th:text="(${t.deposit} ? '+' : '−') + ${#numbers.formatInteger(t.amount, 3, 'COMMA')} + '원'">+0원</td>
+            <td class="num tx__after" data-label="거래 후 잔액" th:text="${#numbers.formatInteger(t.balanceAfter, 3, 'COMMA')} + '원'">0원</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+  </div>
+</main>
+<div th:replace="~{fragments/footer :: footer}"></div>
+</body>
+</html>
