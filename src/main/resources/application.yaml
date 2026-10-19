@@ -1,6 +1,8 @@
 spring:
   application:
     name: bastionpay
+  config:
+    import: optional:file:.env[.properties]   # 루트의 .env를 properties 형식으로 로드
   profiles:
     default: dev   # IntelliJ에서 프로파일 미지정 시 dev (Mac 개발)
 
@@ -41,7 +43,7 @@ spring:
 
 server:
   address: ${SERVER_ADDRESS:127.0.0.1}   # 로컬 바인딩 (2-2 LAN 노출 방지)
-  port: ${SERVER_PORT:8443}
+  port: ${SERVER_PORT:8080}
   shutdown: graceful
   # forward-headers-strategy 미설정(none): X-Forwarded-For 미신뢰 (15-3 MdcLoggingFilter)
   error:
@@ -85,4 +87,4 @@ app:
     base-url: ${OPENBANKING_BASE_URL:https://testapi.openbanking.or.kr}
     client-id: ${OPENBANKING_CLIENT_ID}
     client-secret: ${OPENBANKING_CLIENT_SECRET}
-    redirect-uri: ${OPENBANKING_REDIRECT_URI:https://localhost:8443/openbanking/callback}
+    redirect-uri: ${OPENBANKING_REDIRECT_URI:https://localhost:8080/openbanking/callback}
