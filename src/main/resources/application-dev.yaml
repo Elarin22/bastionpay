@@ -1,0 +1,20 @@
+# Mac 개발 환경 (로컬 Docker MySQL)
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/bastionpay_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=false
+    username: ${DB_USERNAME:bastionpay_app}
+    password: ${DB_PASSWORD}
+    hikari:
+      leak-detection-threshold: 20000   # 개발 중 커넥션 누수 탐지
+  flyway:
+    user: ${DB_MIGRATION_USERNAME:bastionpay_migrator}   # DDL 권한 계정 분리
+    password: ${DB_MIGRATION_PASSWORD}
+  jpa:
+    show-sql: false
+  thymeleaf:
+    cache: false
+
+logging:
+  level:
+    com.san.bastionpay: DEBUG
+    com.zaxxer.hikari: INFO
