@@ -137,11 +137,3 @@ a.row:hover, .row--account:hover { background: var(--paper); padding-inline: 0.7
 .progress progress::-webkit-progress-bar { background: var(--line); }
 .progress progress::-webkit-progress-value { background: var(--navy-900); }
 .progress progress::-moz-progress-bar { background: var(--navy-900); }
-
-/* ---------- 스크롤바 자리를 양쪽에 똑같이 확보 (앱 화면) ----------
-   클래식 스크롤바가 있으면 오른쪽만 좁아져 왼쪽이 넓어 보인다. 왼쪽에도 같은 자리를 비우고,
-   그 자리에 가로 띠 배경(푸터·안내 띠)이 끊겨 보이지 않도록 배경을 좌우로 연장한다.
-   헤더는 흰 배경이 페이지 바탕과 같고, 모바일 메뉴가 헤더 밖으로 내려오므로 연장하지 않는다. */
-html:has(.app-note) { scrollbar-gutter: stable both-edges; }
-html:has(.app-note) .site-footer { box-shadow: 0 0 0 100vmax var(--navy-950); clip-path: inset(0 -100vmax); }
-html:has(.app-note) .app-note { box-shadow: 0 0 0 100vmax var(--paper); clip-path: inset(0 -100vmax); }
