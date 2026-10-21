@@ -48,7 +48,13 @@ public class JwtService {
         this.decoder = nimbus;
     }
 
+    /** 세션 없이 발급한다(sid 클레임 없음). 시험용이며, 요청 인증은 sid 가 있는 토큰만 받아들인다. */
     public String issueAccessToken(Member member) {
+        return issueAccessToken(member, null);
+    }
+
+    /** sessionId 는 로그인 세션(login_session)의 id 로, 활동 없음 만료와 즉시 로그아웃 판정에 쓴다. */
+    public String issueAccessToken(Member member, String sessionId) {
         Instant now = Instant.now();
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer(ISSUER)
@@ -59,20 +65,30 @@ public class JwtService {
                 .claim("nick", member.getNickname())
                 .claim("role", member.getRole().name())
                 .claim("tier", member.getTier().name())
+                .claims(c -> { if (sessionId != null) c.put("sid", sessionId); })
                 .build();
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
         return encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
     }
 
+    /** 사용자와 세션 id. 세션 id 가 없는 토큰이면 sessionId 는 null. */
+    public record Parsed(AuthMember member, String sessionId) {
+    }
+
     public Optional<AuthMember> parse(String token) {
+        return parseSession(token).map(Parsed::member);
+    }
+
+    public Optional<Parsed> parseSession(String token) {
         try {
             Jwt jwt = decoder.decode(token);
             String role = jwt.getClaimAsString("role");
             if (role == null) return Optional.empty();
             // 등급 도입 전에 발급된 토큰에는 tier 가 없다
             String tier = jwt.getClaimAsString("tier");
-            return Optional.of(new AuthMember(Long.parseLong(jwt.getSubject()), jwt.getClaimAsString("nick"),
-                    role, tier == null ? "STANDARD" : tier));
+            AuthMember member = new AuthMember(Long.parseLong(jwt.getSubject()), jwt.getClaimAsString("nick"),
+                    role, tier == null ? "STANDARD" : tier);
+            return Optional.of(new Parsed(member, jwt.getClaimAsString("sid")));
         } catch (JwtException | NumberFormatException e) {
             return Optional.empty();
         }

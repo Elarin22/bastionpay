@@ -1,5 +1,9 @@
 server:
   port: 8090   # BastionPay(8080)와 겹치지 않게
+  error:
+    include-message: never        # 에러 화면·응답에 예외 메시지, 스택트레이스를 싣지 않는다
+    include-stacktrace: never
+    include-exception: false
 
 spring:
   application:
@@ -43,7 +47,7 @@ spring:
 mockbank:
   auth-code-ttl: 5m          # 인증 코드는 짧게 쓰고 한 번만 쓸 수 있다
   access-token-ttl: 90d      # 실제 오픈뱅킹의 사용자 토큰 유효기간과 같게
-  transfer-max-amount: 10000000   # 이체 한 건의 최대 금액(원)
+  transfer-max-amount: 999999999999   # 이체 한 건의 최대 금액(원). 은행 자체 한도는 사실상 없다(API 의 12자리 제한만). 이용기관(BastionPay)이 회원 등급별 한도를 따로 둔다
 
   # 휴대폰 문자 인증
   phone-auth:

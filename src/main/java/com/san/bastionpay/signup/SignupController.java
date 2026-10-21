@@ -1,5 +1,9 @@
 package com.san.bastionpay.signup;
 
+import com.san.bastionpay.audit.EventOutcome;
+import com.san.bastionpay.audit.SecurityEvent;
+import com.san.bastionpay.audit.SecurityEventRecorder;
+import com.san.bastionpay.audit.SecurityEventType;
 import com.san.bastionpay.auth.AuthCookies;
 import com.san.bastionpay.auth.AuthMember;
 import com.san.bastionpay.auth.AuthService;
@@ -40,9 +44,11 @@ public class SignupController {
     private final AuthService authService;
     private final AuthCookies cookies;
     private final SignupProperties props;
+    private final SecurityEventRecorder events;
 
     public SignupController(SignupService signupService, AuthService authService,
-                            AuthCookies cookies, SignupProperties props) {
+                            AuthCookies cookies, SignupProperties props, SecurityEventRecorder events) {
+        this.events = events;
         this.signupService = signupService;
         this.authService = authService;
         this.cookies = cookies;
@@ -65,6 +71,9 @@ public class SignupController {
         try {
             String newToken = signupService.start(token, form.email());
             cookies.add(response, cookies.build(COOKIE, newToken, "/signup", props.requestTtl()));
+        } catch (AlreadyRegisteredException e) {
+            // 이미 가입한 이메일이면 가입 화면에 머물지 않고 로그인 화면으로 보낸다(이메일은 주소에 싣지 않는다)
+            return "redirect:/login?registered";
         } catch (SignupException e) {
             return fail(token, model, response, e.getMessage());
         }
@@ -89,6 +98,9 @@ public class SignupController {
                          HttpServletResponse response, Model model) {
         try {
             signupService.resend(token);
+        } catch (AlreadyRegisteredException e) {
+            cookies.add(response, cookies.build(COOKIE, "", "/signup", Duration.ZERO));
+            return "redirect:/login?registered";
         } catch (SignupException e) {
             return fail(token, model, response, e.getMessage());
         }
@@ -149,7 +161,7 @@ public class SignupController {
         }
         cookies.add(response, cookies.build(COOKIE, "", "/signup", Duration.ZERO));
         authService.startSession(member, response);   // 가입 직후 로그인 상태
-        log.info("security_event type=SIGNUP_COMPLETE memberId={}", member.getId());
+        events.record(SecurityEvent.of(SecurityEventType.SIGNUP_COMPLETE, EventOutcome.SUCCESS).memberId(member.getId()));
         return "redirect:/dashboard";
     }
 

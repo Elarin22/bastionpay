@@ -1,5 +1,9 @@
 package com.san.bastionpay.openbanking;
 
+import com.san.bastionpay.audit.EventOutcome;
+import com.san.bastionpay.audit.SecurityEvent;
+import com.san.bastionpay.audit.SecurityEventRecorder;
+import com.san.bastionpay.audit.SecurityEventType;
 import com.san.bastionpay.core.exception.BusinessException;
 import com.san.bastionpay.core.exception.ErrorCode;
 import com.san.bastionpay.openbanking.OpenBankingClient.Account;
@@ -50,9 +54,11 @@ public class OpenBankingService {
     private final OpenBankingLinkRepository links;
     private final OpenBankingAuthStateRepository states;
     private final TokenCipher cipher;
+    private final SecurityEventRecorder events;
 
     public OpenBankingService(OpenBankingProperties props, OpenBankingClient client, OpenBankingLinkRepository links,
-                              OpenBankingAuthStateRepository states, TokenCipher cipher) {
+                              OpenBankingAuthStateRepository states, TokenCipher cipher, SecurityEventRecorder events) {
+        this.events = events;
         this.props = props;
         this.client = client;
         this.links = links;
@@ -111,7 +117,7 @@ public class OpenBankingService {
             link.renew(token.userSeqNo(), encrypted, scope, expiresAt);
             links.save(link);
         }
-        log.info("security_event type=OPENBANKING_LINKED memberId={}", saved.getMemberId());
+        events.record(SecurityEvent.of(SecurityEventType.OPENBANKING_LINKED, EventOutcome.SUCCESS).memberId(saved.getMemberId()));
         return saved.getMemberId();
     }
 
@@ -247,7 +253,7 @@ public class OpenBankingService {
 
     public void disconnect(long memberId) {
         links.deleteByMemberId(memberId);
-        log.info("security_event type=OPENBANKING_UNLINKED memberId={}", memberId);
+        events.record(SecurityEvent.of(SecurityEventType.OPENBANKING_UNLINKED, EventOutcome.SUCCESS).memberId(memberId));
     }
 
     @Scheduled(cron = "0 15 4 * * *")

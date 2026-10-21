@@ -8,7 +8,6 @@ Flyway 마이그레이션과 달리 앱이 자동으로 실행하지 않는다. 
 |---|---|---|
 | `db/seed/member.sql` | `bastionpay_db` (3306) | BastionPay 더미 회원 4명 |
 | `mock-openbanking/db/seed/mockbank.sql` | `mockbank_db` (3307) | 가짜 은행 고객·계좌·거래내역, 이용기관(BastionPay) |
-| `mock-openbanking/db/seed/mockbank.local.sql` | `mockbank_db` | 개인용(커밋하지 않음, `*.local.sql` 은 gitignore) |
 
 실행 순서: 각 DB 에 앱을 한 번 띄워 Flyway 로 테이블을 만든 뒤 → `member.sql` → `mockbank.sql`.
 
@@ -20,6 +19,9 @@ Flyway 마이그레이션과 달리 앱이 자동으로 실행하지 않는다. 
 | vip@test.com | USER | VIP |
 | vvip@test.com | USER | VVIP |
 | admin@test.com | ADMIN | STANDARD |
+
+등급은 이제 누적 이체 금액으로 자동 승급하고 3개월 이용하지 않으면 자동 강등한다(`docs/security-events.md` 4-2절). 시드의 VIP·VVIP 등급은 개발용 초기값이며, 석 달 넘게 로그인하지 않으면 정책에 따라 내려간다.
+1회 이체 한도는 STANDARD 200만원 / VIP 1,000만원 / VVIP 제한 없음.
 
 ## 가짜 은행
 
@@ -34,6 +36,10 @@ Flyway 마이그레이션과 달리 앱이 자동으로 실행하지 않는다. 
 | (BastionPay 약정계좌 소유자, 잠김) | 010-0000-0001 |
 
 - 가상의 은행: 한빛은행(901), 새솔은행(902).
+- 테스트 계정의 계좌 잔액(시드 기준): test 월급 통장 102,350,000 / 생활비 100,870,000, vip 주거래 통장 104,800,000, vvip 자산 관리 통장 125,000,000.
+  이체 테스트를 하면 잔액이 바뀌므로, 처음 값으로 되돌리려면 `mockbank.sql` 을 다시 실행한다.
+- 이체 테스트에 쓸 받는 계좌: 한빛은행 `1002345678901`(테스터), 새솔은행 `1102839475610`(테스터), 한빛은행 `2003456789012`(브이아이피), 한빛은행 `3004567890123`(브이브이아이피).
+  은행과 계좌번호가 모두 맞아야 입금된다.
 - 이용기관 BastionPay 의 개발용 공개 값 (실제 오픈뱅킹 키가 아니다)
 
 | 항목 | 값 |

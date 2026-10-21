@@ -1,5 +1,8 @@
 package com.san.bastionpay.transfer;
 
+import com.san.bastionpay.audit.SecurityEvent;
+import com.san.bastionpay.audit.SecurityEventRecorder;
+import com.san.bastionpay.audit.SecurityEventType;
 import com.san.bastionpay.core.exception.BusinessException;
 import com.san.bastionpay.core.exception.ErrorCode;
 import com.san.bastionpay.member.MemberRepository;
@@ -9,9 +12,11 @@ import com.san.bastionpay.openbanking.OpenBankingService;
 import com.san.bastionpay.openbanking.TransferUnknownException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,14 +46,20 @@ class TransferServiceTest {
     @Autowired TransferService service;
     @Autowired TransferRequestRepository requests;
     @Autowired MemberRepository members;
+    @Autowired JdbcTemplate jdbc;
+    @Autowired jakarta.persistence.EntityManager em;
 
     @MockitoBean OpenBankingClient client;
     @MockitoBean OpenBankingService openBanking;
+    @MockitoBean SecurityEventRecorder events;   // 개발 DB 의 security_event 에 테스트 이벤트가 남지 않게 대체한다
 
     private long memberId;
+    /** 개발 DB 에 직접 이체해 본 기록이 있을 수 있어서, 개수는 테스트 시작 시점과 비교한다. */
+    private long baseline;
 
     @BeforeEach
     void setUp() {
+        baseline = requests.count();
         memberId = members.findByEmail("test@test.com").orElseThrow().getId();
         var account = new OpenBankingClient.Account(FIN, "월급 통장", "한빛은행", "100-***-8901", "홍*동", true);
         when(openBanking.transferSource(memberId, FIN)).thenReturn(new OpenBankingService.TransferSource("user-token", account));
@@ -176,7 +187,7 @@ class TransferServiceTest {
         assertThat(second.status()).isEqualTo(TransferStatus.COMPLETED);
         verify(client, times(1)).withdraw(any(), any(), any(), anyLong(), any());     // 더블클릭·새로고침으로 두 번 출금되지 않는다
         verify(client, times(1)).deposit(any(), any(), any(), anyLong(), any());
-        assertThat(requests.count()).isEqualTo(1);
+        assertThat(requests.count() - baseline).isEqualTo(1);
     }
 
     @Test
@@ -200,7 +211,7 @@ class TransferServiceTest {
         TransferService.Outcome second = service.transfer(other, REQUEST, FIN, "901", "2003456789012", 5_000, null);
 
         assertThat(second.replayed()).isFalse();
-        assertThat(requests.count()).isEqualTo(2);
+        assertThat(requests.count() - baseline).isEqualTo(2);
     }
 
     @Test
@@ -215,7 +226,7 @@ class TransferServiceTest {
         assertThatThrownBy(() -> service.transfer(memberId, REQUEST, FIN, "901", "2003456789012", 10_000_001, null))
                 .isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.TRANSFER_LIMIT_EXCEEDED));
 
-        assertThat(requests.count()).isZero();
+        assertThat(requests.count() - baseline).isZero();
         verify(client, never()).withdraw(any(), anyString(), any(), anyLong(), any());
     }
 
@@ -226,7 +237,81 @@ class TransferServiceTest {
         assertThatThrownBy(this::run).isInstanceOfSatisfying(BusinessException.class,
                 e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.TRANSFER_NOT_PERMITTED));
 
-        assertThat(requests.count()).isZero();
+        assertThat(requests.count() - baseline).isZero();
         verify(client, never()).withdraw(any(), any(), any(), anyLong(), any());
+    }
+
+    private java.util.List<SecurityEvent> recordedEvents() {
+        ArgumentCaptor<SecurityEvent.Builder> captor = ArgumentCaptor.forClass(SecurityEvent.Builder.class);
+        verify(events, org.mockito.Mockito.atLeast(0)).record(captor.capture());
+        return captor.getAllValues().stream().map(SecurityEvent.Builder::build).toList();
+    }
+
+    @Test
+    void completedTransferRecordsRequestedAndCompletedEventsWithoutAccountNumbers() {
+        when(client.deposit(any(), any(), any(), anyLong(), any())).thenReturn(new OpenBankingClient.DepositResult("브***피"));
+
+        run();
+        run();   // 같은 요청 재전송
+
+        var recorded = recordedEvents();
+        assertThat(recorded).extracting(SecurityEvent::type).containsExactly(
+                SecurityEventType.TRANSFER_REQUESTED, SecurityEventType.TRANSFER_COMPLETED, SecurityEventType.TRANSFER_REPLAY);
+        SecurityEvent completed = recorded.get(1);
+        assertThat(completed.memberId()).isEqualTo(memberId);
+        assertThat(completed.transferId()).isNotNull();
+        assertThat(completed.amount()).isEqualTo(5_000L);
+        assertThat(completed.currency()).isEqualTo("KRW");
+        assertThat(completed.accountRef()).isEqualTo("fin-***000002").doesNotContain(FIN);
+        assertThat(completed.toFields().toString()).doesNotContain("2003456789012");
+    }
+
+    @Test
+    void failedWithdrawAndRefundAreRecordedWithReasonCodes() {
+        when(client.withdraw(any(), any(), any(), anyLong(), any())).thenThrow(new BusinessException(ErrorCode.INSUFFICIENT_BALANCE, "x"));
+        assertThatThrownBy(this::run).isInstanceOf(BusinessException.class);
+
+        SecurityEvent failed = recordedEvents().stream().filter(e -> e.type() == SecurityEventType.TRANSFER_FAILED).findFirst().orElseThrow();
+        assertThat(failed.reasonCode()).isEqualTo(ErrorCode.INSUFFICIENT_BALANCE.code());
+        assertThat(failed.outcome()).isEqualTo(com.san.bastionpay.audit.EventOutcome.FAILURE);
+    }
+
+    private void setTier(String tier) {
+        em.flush();
+        jdbc.update("update member set tier = ? where id = ?", tier, memberId);
+        em.clear();
+    }
+
+    @Test
+    void perTransferLimitFollowsTheMembersTierAtTransferTime() {
+        // STANDARD: 200만원까지
+        assertThatThrownBy(() -> service.transfer(memberId, REQUEST, FIN, "901", "2003456789012", 2_000_001, null))
+                .isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.TRANSFER_LIMIT_EXCEEDED));
+        verify(client, never()).withdraw(any(), anyString(), any(), anyLong(), any());
+        verify(events, never()).record(any(SecurityEvent.Builder.class));   // 접수 전에 거절하므로 이체 이벤트도 없다
+
+        // VIP: 1,000만원까지. 그 넘어서는 막힌다
+        setTier("VIP");
+        when(client.deposit(any(), any(), any(), anyLong(), any())).thenReturn(new OpenBankingClient.DepositResult("브***피"));
+        assertThat(service.transfer(memberId, REQUEST, FIN, "901", "2003456789012", 10_000_000, null).status()).isEqualTo(TransferStatus.COMPLETED);
+        assertThatThrownBy(() -> service.transfer(memberId, "33333333-3333-3333-3333-333333333333", FIN, "901", "2003456789012", 10_000_001, null))
+                .isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.TRANSFER_LIMIT_EXCEEDED));
+
+        // VVIP: 제한 없음(은행 API 의 12자리 상한까지)
+        setTier("VVIP");
+        assertThat(service.transfer(memberId, "44444444-4444-4444-4444-444444444444", FIN, "901", "2003456789012", 500_000_000, null).status())
+                .isEqualTo(TransferStatus.COMPLETED);
+        assertThatThrownBy(() -> service.transfer(memberId, "55555555-5555-5555-5555-555555555555", FIN, "901", "2003456789012", 1_000_000_000_000L, null))
+                .isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.TRANSFER_LIMIT_EXCEEDED));
+    }
+
+    @Test
+    void aResentRequestIsStillAnsweredAfterTheTierDropped() {
+        setTier("VIP");
+        when(client.deposit(any(), any(), any(), anyLong(), any())).thenReturn(new OpenBankingClient.DepositResult("브***피"));
+        service.transfer(memberId, REQUEST, FIN, "901", "2003456789012", 5_000_000, null);
+
+        setTier("STANDARD");   // 강등돼서 지금 한도(200만원)보다 큰 금액의 이체였더라도
+        assertThat(service.transfer(memberId, REQUEST, FIN, "901", "2003456789012", 5_000_000, null).replayed()).isTrue();   // 이미 접수된 요청은 결과를 그대로 돌려준다
     }
 }

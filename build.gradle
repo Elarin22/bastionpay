@@ -49,4 +49,6 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // 테스트가 개발 DB 의 security_event 에 이벤트를 쌓지 않게 한다(DB 저장을 시험하는 테스트만 다시 켠다)
+    systemProperty 'app.security.event-db-enabled', 'false'
 }

@@ -78,6 +78,7 @@ class TransferPagesTest {
         String html = body(get("/transfer"));
 
         assertThat(html).contains("value=\"" + FIN + "\"", "월급 통장", "2,350,000원", "한빛은행", "새솔은행");
+        assertThat(html).contains("1회 이체 한도 2,000,000원 (STANDARD)", "VIP까지");   // 내 등급과 한도, 다음 등급까지 남은 금액
         assertThat(html).doesNotContain(FIN_NO_TRANSFER, "예시 데이터", "푸른저축은행");
     }
 
@@ -112,8 +113,14 @@ class TransferPagesTest {
 
     @Test
     void confirmRejectsBadInputWithoutCallingTheBank() throws Exception {
-        assertThat(body(form("/transfer/confirm", FIN, "한빛은행", "2003456789012", "3000000", ""))).contains("잔액이 부족합니다").doesNotContain("이체하기</span>");
+        // 1회 이체 한도는 등급마다 다르다(이 사용자는 DB 에 없어 가장 낮은 등급: 200만원)
+        assertThat(body(form("/transfer/confirm", FIN, "한빛은행", "2003456789012", "2000001", ""))).contains("1회 이체 한도(2,000,000원)").doesNotContain("이체하기</span>");
         assertThat(body(form("/transfer/confirm", FIN, "한빛은행", "2003456789012", "10000001", ""))).contains("1회 이체 한도");
+        when(openBanking.accountsWithBalance(MEMBER_ID)).thenReturn(List.of(new OpenBankingService.AccountBalance(account(FIN, "월급 통장", true), 1_000_000L)));
+        assertThat(body(form("/transfer/confirm", FIN, "한빛은행", "2003456789012", "1500000", ""))).contains("잔액이 부족합니다").doesNotContain("이체하기</span>");
+        when(openBanking.accountsWithBalance(MEMBER_ID)).thenReturn(List.of(
+                new OpenBankingService.AccountBalance(account(FIN, "월급 통장", true), 2_350_000L),
+                new OpenBankingService.AccountBalance(account(FIN_NO_TRANSFER, "생활비", false), 870_000L)));
         assertThat(body(form("/transfer/confirm", FIN, "한빛은행", "2003456789012", "0", ""))).contains("1원 이상");
         assertThat(body(form("/transfer/confirm", FIN, "한빛은행", "2003456789012", "1,000", ""))).contains("숫자만");
         assertThat(body(form("/transfer/confirm", FIN, "푸른저축은행", "2003456789012", "1000", ""))).contains("받는 은행을 목록에서");
@@ -179,7 +186,7 @@ class TransferPagesTest {
     @Test
     void executeRevalidatesInputInsteadOfTrustingTheConfirmScreen() throws Exception {
         assertThat(body(form("/transfer/execute", FIN_NO_TRANSFER, "한빛은행", "2003456789012", "1000", ""))).contains("입력 내용을 다시 확인해 주세요.");
-        assertThat(body(form("/transfer/execute", FIN, "한빛은행", "2003456789012", "99999999", ""))).contains("입력 내용을 다시 확인해 주세요.");
+        assertThat(body(form("/transfer/execute", FIN, "한빛은행", "2003456789012", "1000000000000", ""))).contains("입력 내용을 다시 확인해 주세요.");   // 12자리(은행 API 의 상한)를 넘는다
         verify(transfers, never()).transfer(anyLong(), anyString(), anyString(), anyString(), anyString(), anyLong(), any());
     }
 

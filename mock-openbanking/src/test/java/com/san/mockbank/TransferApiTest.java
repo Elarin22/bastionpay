@@ -36,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 출금이체·입금이체 API. db/seed/mockbank.sql 이 적용된 로컬 mockbank-mysql(3307)이 필요하고, 모든 테스트는 롤백된다.
  * 시드: 약정계좌 1(5천만 원), 테스터 계좌 2(2,350,000원)·3, vip 계좌 4, vvip 계좌 5.
  */
-@SpringBootTest
+@SpringBootTest(properties = "mockbank.transfer-max-amount=10000000")   // 은행의 건당 한도 검증을 시험하려고 기본값(사실상 제한 없음)을 낮춘다
 @AutoConfigureMockMvc
 @Transactional
 class TransferApiTest {
@@ -181,6 +181,9 @@ class TransferApiTest {
     @Test
     void withdrawRejectsInsufficientBalanceAndLimitWithoutChangingAnything() throws Exception {
         String token = transferToken();
+        // 시드 잔액은 한도(1천만 원)보다 커서, 잔액 부족을 시험하려면 잔액을 한도 아래로 낮춘다(테스트 트랜잭션 안이라 롤백된다)
+        accounts.findById(2L).orElseThrow().withdraw(balance(2) - 5_000_000L);
+        accounts.flush();
         long userBefore = balance(2), escrowBefore = balance(1);
         long transactionsBefore = transactions.count();
 
@@ -227,6 +230,7 @@ class TransferApiTest {
     @Test
     void withdrawRequiresTransferScopeConsentAndOwnership() throws Exception {
         String transferOnlyFor2 = transferToken();
+        long userBefore = balance(2);
 
         // 내가 이체를 동의하지 않은 계좌(3), 다른 고객 계좌(4), 약정계좌(1), 없는 계좌는 모두 같은 오류
         int n = 0;
@@ -242,7 +246,7 @@ class TransferApiTest {
         // 이용기관 토큰으로는 사용자 계좌에서 출금할 수 없다
         withdraw(orgToken(), tranId("ORGTOKEN1"), fin(2), "1000", null).andExpect(status().isForbidden());
         withdraw(null, tranId("NOTOKEN01"), fin(2), "1000", null).andExpect(status().isUnauthorized());
-        assertThat(balance(2)).isEqualTo(2_350_000L);
+        assertThat(balance(2)).isEqualTo(userBefore);
     }
 
     // ---- 입금이체 ----

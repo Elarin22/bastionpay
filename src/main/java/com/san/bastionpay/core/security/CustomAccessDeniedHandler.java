@@ -1,11 +1,17 @@
 package com.san.bastionpay.core.security;
 
-import com.san.bastionpay.core.util.LogSanitizer;
+import com.san.bastionpay.audit.EventOutcome;
+import com.san.bastionpay.audit.SecurityEvent;
+import com.san.bastionpay.audit.SecurityEventRecorder;
+import com.san.bastionpay.audit.SecurityEventType;
+import com.san.bastionpay.auth.AuthMember;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.stereotype.Component;
@@ -20,12 +26,22 @@ import java.io.IOException;
 @Component
 public class CustomAccessDeniedHandler implements AccessDeniedHandler {
 
+    private final SecurityEventRecorder events;
+
+    public CustomAccessDeniedHandler(SecurityEventRecorder events) {
+        this.events = events;
+    }
+
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response, AccessDeniedException e)
             throws IOException {
-        String type = e instanceof CsrfException ? "CSRF_REJECTED" : "ACCESS_DENIED";
-        log.warn("security_event type={} method={} path={}",
-                type, request.getMethod(), LogSanitizer.clean(request.getRequestURI()));
+        boolean csrf = e instanceof CsrfException;
+        SecurityEvent.Builder event = SecurityEvent.of(csrf ? SecurityEventType.CSRF_REJECTED : SecurityEventType.ACCESS_DENIED, EventOutcome.DENIED)
+                .reasonCode(csrf ? "CSRF_TOKEN_INVALID" : "INSUFFICIENT_AUTHORITY")
+                .request(request.getMethod(), request.getRequestURI());
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof AuthMember member) event.memberId(member.id());
+        events.record(event);
         response.sendError(HttpStatus.FORBIDDEN.value());
     }
 }
