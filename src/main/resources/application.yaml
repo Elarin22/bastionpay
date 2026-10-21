@@ -106,7 +106,13 @@ app:
       secure: true
       same-site: Strict
   openbanking:
-    base-url: ${OPENBANKING_BASE_URL:https://testapi.openbanking.or.kr}
-    client-id: ${OPENBANKING_CLIENT_ID}
-    client-secret: ${OPENBANKING_CLIENT_SECRET}
+    base-url: ${OPENBANKING_BASE_URL:http://localhost:8090}   # 가짜 오픈뱅킹(mock-openbanking)
+    client-id: ${OPENBANKING_CLIENT_ID:}
+    client-secret: ${OPENBANKING_CLIENT_SECRET:}
     redirect-uri: ${OPENBANKING_REDIRECT_URI:https://localhost:8080/openbanking/callback}
+    org-code: ${OPENBANKING_ORG_CODE:}                     # 이용기관코드(10자리). 잔액조회의 거래고유번호에 쓴다
+    token-secret: ${OPENBANKING_TOKEN_SECRET:${JWT_SECRET}}   # access token 암호화 키의 원천
+    state-ttl: 10m
+    connect-timeout: 3s
+    read-timeout: 10s
+    transfer-pass-phrase: ${OPENBANKING_PASS_PHRASE:}   # 입금이체 암호문구(이용기관 약정 시 정한 값)

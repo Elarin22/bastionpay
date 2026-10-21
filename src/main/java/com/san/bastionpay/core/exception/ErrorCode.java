@@ -22,9 +22,15 @@ public enum ErrorCode {
     ACCOUNT_NOT_FOUND("A001", HttpStatus.NOT_FOUND, "계좌를 찾을 수 없습니다."),
     INSUFFICIENT_BALANCE("A002", HttpStatus.BAD_REQUEST, "잔액이 부족합니다."),
     DUPLICATE_TRANSFER("A003", HttpStatus.CONFLICT, "이미 처리된 이체 요청입니다."),
+    TRANSFER_NOT_PERMITTED("A004", HttpStatus.FORBIDDEN, "이체가 허용되지 않은 계좌입니다. 오픈뱅킹을 다시 연결하면서 이체를 허용해 주세요."),
+    TRANSFER_LIMIT_EXCEEDED("A005", HttpStatus.BAD_REQUEST, "1회 이체 한도(1,000만원)를 넘었습니다."),
+    TRANSFER_PENDING_REVIEW("A006", HttpStatus.ACCEPTED, "이체 결과를 확인하고 있습니다. 같은 이체를 다시 시도하지 말고 아래 요청 번호로 문의해 주세요."),
 
     // 오픈뱅킹
-    OPENBANKING_API_ERROR("O001", HttpStatus.BAD_GATEWAY, "오픈뱅킹 연동에 문제가 있습니다. 잠시 후 다시 시도해 주세요.");
+    OPENBANKING_API_ERROR("O001", HttpStatus.BAD_GATEWAY, "오픈뱅킹 연동에 문제가 있습니다. 잠시 후 다시 시도해 주세요."),
+    OPENBANKING_NOT_CONFIGURED("O002", HttpStatus.SERVICE_UNAVAILABLE, "오픈뱅킹 연동이 아직 설정되지 않았습니다. 관리자에게 문의해 주세요."),
+    OPENBANKING_AUTH_FAILED("O003", HttpStatus.BAD_REQUEST, "오픈뱅킹 인증을 확인하지 못했습니다. 연결을 처음부터 다시 시도해 주세요."),
+    OPENBANKING_NOT_LINKED("O004", HttpStatus.CONFLICT, "오픈뱅킹이 연결되어 있지 않습니다. 먼저 계좌를 연결해 주세요.");
 
     private final String code;
     private final HttpStatus status;

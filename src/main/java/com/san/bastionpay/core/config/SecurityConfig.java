@@ -92,6 +92,8 @@ public class SecurityConfig {
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers("/", "/login", "/logout", "/signup", "/signup/**", "/error",
                                 "/css/**", "/js/**", "/img/**", "/fonts/**", "/favicon.ico").permitAll()
+                        // 은행에서 넘어오는 요청이라 로그인 쿠키(Strict)가 없다. state 로 직접 검증한다
+                        .requestMatchers("/openbanking/callback").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/actuator/**").denyAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")   // 보안 대시보드·티켓·IP 차단 등 관리자 전용
