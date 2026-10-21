@@ -6,7 +6,7 @@ services:
     container_name: mysql-server
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?docker/.env 에 MYSQL_ROOT_PASSWORD 를 넣어 주세요}
       MYSQL_DATABASE: bastionpay_db
     ports:
       - "3306:3306"

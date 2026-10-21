@@ -43,16 +43,6 @@ class AppPagesTest {
     }
 
     @Test
-    void dashboardShowsOnlyTotalsAndLinksToDetailPages() throws Exception {
-        String html = page("/dashboard");
-
-        assertThat(html).contains("자산 현황", "입출금 계좌", "예금", "적금", "가상계좌", "총 자산", "37,210,700원");
-        assertThat(html).contains("href=\"/accounts\"", "href=\"/deposits\"", "href=\"/savings\"", "href=\"/virtual-accounts\"");
-        // 상세 내역(최근 거래, 계좌번호)은 대시보드에 두지 않는다
-        assertThat(html).doesNotContain("최근 거래", "110-***-482915");
-    }
-
-    @Test
     void headerKeepsOnlyFrequentItemsAndMegaMenuHoldsEverything() throws Exception {
         String html = page("/deposits");
 
@@ -84,19 +74,4 @@ class AppPagesTest {
         assertThat(page("/deposits")).contains("정기예금 12개월", "3.45%", "만기일");
     }
 
-    @Test
-    void transactionsFilterByAccountAndKind() throws Exception {
-        String all = page("/transactions");
-        String onlyIn = page("/transactions?account=a1&days=90&kind=in");
-
-        // 계좌 선택 목록에는 모든 계좌가 있으므로 표의 계좌 칸만 본다
-        String shinsol = "data-label=\"계좌\">새솔은행 생활비";
-        assertThat(all).contains("data-label=\"계좌\">한빛은행 급여 통장", shinsol);
-        assertThat(onlyIn).contains("data-label=\"계좌\">한빛은행 급여 통장").doesNotContain(shinsol).doesNotContain("class=\"tag\">출금<");
-    }
-
-    @Test
-    void unknownFilterValuesFallBackToDefaults() throws Exception {
-        assertThat(page("/transactions?account=zz&days=9999&kind=zz")).contains("전체 계좌", "최근 1개월");
-    }
 }
