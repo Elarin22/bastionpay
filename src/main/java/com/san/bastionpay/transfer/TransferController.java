@@ -2,6 +2,7 @@ package com.san.bastionpay.transfer;
 
 import com.san.bastionpay.auth.AuthMember;
 import com.san.bastionpay.core.exception.BusinessException;
+import com.san.bastionpay.member.TierService;
 import com.san.bastionpay.core.exception.ErrorCode;
 import com.san.bastionpay.openbanking.OpenBankingService;
 import com.san.bastionpay.openbanking.OpenBankingService.AccountBalance;
@@ -39,10 +40,12 @@ public class TransferController {
 
     private final OpenBankingService openBanking;
     private final TransferService transfers;
+    private final TierService tiers;
 
-    public TransferController(OpenBankingService openBanking, TransferService transfers) {
+    public TransferController(OpenBankingService openBanking, TransferService transfers, TierService tiers) {
         this.openBanking = openBanking;
         this.transfers = transfers;
+        this.tiers = tiers;
     }
 
     @GetMapping("/transfer")
@@ -67,6 +70,10 @@ public class TransferController {
         if (from == null) return formError(model, form, "출금 계좌를 목록에서 선택해 주세요.");
         if (!BANKS.containsKey(form.toBank())) return formError(model, form, "받는 은행을 목록에서 선택해 주세요.");
         if (form.toAccountDigits().length() < 8 || form.toAccountDigits().length() > 20) return formError(model, form, "받는 계좌번호는 8~20자리 숫자로 입력해 주세요.");
+        var limit = tiers.limitOf(member.id());
+        if (limit.isPresent() && form.amount() > limit.getAsLong()) {
+            return formError(model, form, "1회 이체 한도(" + String.format("%,d", limit.getAsLong()) + "원)를 넘었습니다. 한도는 회원 등급에 따라 다르고, 이체를 이용하면 등급이 올라갑니다.");
+        }
         if (from.balance() != null && form.amount() > from.balance()) return formError(model, form, "출금 계좌의 잔액이 부족합니다.");
 
         model.addAttribute("requestId", UUID.randomUUID().toString());
@@ -115,6 +122,7 @@ public class TransferController {
         model.addAttribute("hideSampleNote", true);
         model.addAttribute("configured", openBanking.isConfigured());
         model.addAttribute("banks", BANKS.keySet());
+        model.addAttribute("tierStatus", tiers.status(member.id()));   // 내 등급과 1회 이체 한도(DB 기준)
         boolean linked = openBanking.isLinked(member.id());
         model.addAttribute("linked", linked);
         if (!linked) {

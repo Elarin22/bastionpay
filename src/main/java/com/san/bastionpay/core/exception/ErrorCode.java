@@ -23,7 +23,7 @@ public enum ErrorCode {
     INSUFFICIENT_BALANCE("A002", HttpStatus.BAD_REQUEST, "잔액이 부족합니다."),
     DUPLICATE_TRANSFER("A003", HttpStatus.CONFLICT, "이미 처리된 이체 요청입니다."),
     TRANSFER_NOT_PERMITTED("A004", HttpStatus.FORBIDDEN, "이체가 허용되지 않은 계좌입니다. 오픈뱅킹을 다시 연결하면서 이체를 허용해 주세요."),
-    TRANSFER_LIMIT_EXCEEDED("A005", HttpStatus.BAD_REQUEST, "1회 이체 한도(1,000만원)를 넘었습니다."),
+    TRANSFER_LIMIT_EXCEEDED("A005", HttpStatus.BAD_REQUEST, "1회 이체 한도를 넘었습니다. 한도는 회원 등급에 따라 다릅니다."),
     TRANSFER_PENDING_REVIEW("A006", HttpStatus.ACCEPTED, "이체 결과를 확인하고 있습니다. 같은 이체를 다시 시도하지 말고 아래 요청 번호로 문의해 주세요."),
 
     // 오픈뱅킹

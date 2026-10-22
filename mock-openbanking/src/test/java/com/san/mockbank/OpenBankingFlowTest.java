@@ -130,7 +130,7 @@ class OpenBankingFlowTest {
         mvc.perform(get("/v2.0/account/balance/fin_num").header("Authorization", "Bearer " + access)
                         .param("bank_tran_id", tranId("AAAAAAAA1")).param("fintech_use_num", fin(2)).param("tran_dtime", "20261021101500"))
                 .andExpect(jsonPath("$.rsp_code").value("A0000"))
-                .andExpect(jsonPath("$.balance_amt").value("2350000"))
+                .andExpect(jsonPath("$.balance_amt").value("102350000"))
                 .andExpect(jsonPath("$.bank_tran_id").value(tranId("AAAAAAAA1")));
     }
 

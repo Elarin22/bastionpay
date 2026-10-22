@@ -1,6 +1,9 @@
 package com.san.bastionpay.core.security;
 
-import com.san.bastionpay.core.util.LogSanitizer;
+import com.san.bastionpay.audit.EventOutcome;
+import com.san.bastionpay.audit.SecurityEvent;
+import com.san.bastionpay.audit.SecurityEventRecorder;
+import com.san.bastionpay.audit.SecurityEventType;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -20,13 +23,21 @@ import java.io.IOException;
 @Component
 public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
+    private final SecurityEventRecorder events;
+
+    public CustomAuthenticationEntryPoint(SecurityEventRecorder events) {
+        this.events = events;
+    }
+
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException e)
             throws IOException {
-        log.warn("security_event type=AUTHENTICATION_REQUIRED method={} path={}",
-                request.getMethod(), LogSanitizer.clean(request.getRequestURI()));
+        events.record(SecurityEvent.of(SecurityEventType.AUTHENTICATION_REQUIRED, EventOutcome.DENIED)
+                .reasonCode("NOT_AUTHENTICATED").request(request.getMethod(), request.getRequestURI()));
         if (isPageRequest(request)) {
-            response.sendRedirect(request.getContextPath() + "/login?required");
+            // 활동이 없어 세션이 만료된 경우에는 그 이유를 로그인 화면에서 알려 준다
+            boolean expired = request.getAttribute(com.san.bastionpay.auth.JwtAuthenticationFilter.SESSION_EXPIRED) != null;
+            response.sendRedirect(request.getContextPath() + (expired ? "/login?expired" : "/login?required"));
         } else {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
         }

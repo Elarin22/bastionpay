@@ -42,11 +42,6 @@ public class MailService {
         send(to, content, "인증 코드 " + code);
     }
 
-    /** 이미 가입된 이메일이어도 화면 응답은 같게 하고, 안내는 메일로만 전한다(계정 존재 여부 노출 방지). */
-    public void sendAlreadyRegistered(String to) {
-        send(to, alreadyRegisteredContent(), "이미 가입된 이메일 안내");
-    }
-
     static MailContent verificationContent(String code, Duration ttl) {
         String expiry = ttl.toMinutes() + "분 안에 가입 화면에 입력해 주세요. 시간이 지나면 새 코드를 받을 수 있습니다.";
         return new MailContent(

@@ -124,4 +124,77 @@
     pw.addEventListener('input', update);
     confirm.addEventListener('input', update);
   }
+
+  /* ---------- 로그인 유지 타이머 ----------
+     서버가 알려 준 남은 시간(초)부터 1초씩 센다. 다른 탭의 활동을 반영하려고 30초마다 서버에 남은 시간을 묻는다
+     (묻는 것은 활동으로 치지 않아 세션이 늘어나지 않는다). 0 이 되면 로그인 화면으로 보낸다. */
+  var session = document.querySelector('.session[data-session-remaining]');
+  if (session) {
+    var timeEl = session.querySelector('[data-session-time]');
+    var announce = session.querySelector('[data-session-announce]');
+    var button = session.querySelector('.session__extend');
+    var remaining = parseInt(session.getAttribute('data-session-remaining'), 10) || 0;
+    var deadline = Date.now() + remaining * 1000;
+    var announced = 0;
+
+    var render = function () {
+      var left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+      var m = Math.floor(left / 60);
+      var sec = left % 60;
+      timeEl.textContent = (m < 10 ? '0' : '') + m + ':' + (sec < 10 ? '0' : '') + sec;
+      session.classList.toggle('is-warn', left <= 300 && left > 60);
+      session.classList.toggle('is-urgent', left <= 60);
+      // 화면 낭독기에는 5분, 1분 남았을 때만 한 번씩 알린다
+      if (left <= 60 && announced < 2) { announced = 2; announce.textContent = '1분 뒤 자동 로그아웃됩니다. 연장 버튼을 눌러 주세요.'; }
+      else if (left <= 300 && left > 60 && announced < 1) { announced = 1; announce.textContent = '5분 뒤 자동 로그아웃됩니다.'; }
+      if (left === 0) expire();
+    };
+    /* 0 이 되면 서버에 한 번 더 묻고(묻는 것은 연장이 아니다) 정말 끝났을 때만 로그인 화면으로 간다.
+       시계가 어긋나 서버에 아직 시간이 남아 있으면 그만큼 더 센다. 이동하는 요청 자체가 세션을 늘리지 않도록 1초 여유를 둔다 */
+    var expiring = false;
+    var expire = function () {
+      if (expiring) return;
+      expiring = true;
+      var go = function () { window.location.href = session.getAttribute('data-login-url'); };
+      fetch(session.getAttribute('data-status-url'), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (data) {
+          expiring = false;
+          if (data && data.remainingSeconds > 0) setRemaining(data.remainingSeconds);
+          else window.setTimeout(go, 1100);
+        })
+        .catch(function () { expiring = false; window.setTimeout(go, 1100); });
+    };
+    var setRemaining = function (seconds) {
+      deadline = Date.now() + seconds * 1000;
+      if (seconds > 300) announced = 0;
+      render();
+    };
+
+    render();
+    window.setInterval(render, 1000);
+
+    var poll = function () {
+      fetch(session.getAttribute('data-status-url'), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+        .then(function (res) { if (res.status === 401 || res.redirected) { setRemaining(0); return null; } return res.ok ? res.json() : null; })
+        .then(function (data) { if (data && typeof data.remainingSeconds === 'number') setRemaining(data.remainingSeconds); })
+        .catch(function () { /* 네트워크 오류면 현재 값으로 계속 센다 */ });
+    };
+    window.setInterval(poll, 30000);
+    // 탭으로 돌아왔을 때(절전·백그라운드 후) 바로 맞춘다
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
+
+    session.addEventListener('submit', function (e) {
+      e.preventDefault();
+      button.disabled = true;
+      fetch(session.getAttribute('action'), { method: 'POST', credentials: 'same-origin', body: new FormData(session), headers: { Accept: 'application/json' } })
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (data) {
+          if (data && typeof data.remainingSeconds === 'number') { setRemaining(data.remainingSeconds); announce.textContent = '로그인 유지 시간을 연장했습니다.'; announced = 0; }
+          else window.location.href = session.getAttribute('data-login-url');
+        })
+        .catch(function () { /* 실패하면 시간은 그대로 둔다 */ })
+        .then(function () { button.disabled = false; });
+    });
+  }
 })();

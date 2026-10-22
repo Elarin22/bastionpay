@@ -6,6 +6,7 @@ import com.san.bastionpay.auth.RefreshTokenService;
 import com.san.bastionpay.core.security.CustomAccessDeniedHandler;
 import com.san.bastionpay.core.security.CustomAuthenticationEntryPoint;
 import com.san.bastionpay.auth.JwtService;
+import com.san.bastionpay.auth.LoginSessionService;
 import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -85,7 +86,8 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http, JwtService jwtService,
                                             RefreshTokenService refreshTokens, AuthCookies cookies,
                                             CustomAuthenticationEntryPoint entryPoint,
-                                            CustomAccessDeniedHandler accessDeniedHandler) throws Exception {
+                                            CustomAccessDeniedHandler accessDeniedHandler,
+                                            LoginSessionService loginSessions) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
                         // 에러 디스패치를 막으면 에러 페이지 자체가 401/403으로 가려진다
@@ -94,6 +96,8 @@ public class SecurityConfig {
                                 "/css/**", "/js/**", "/img/**", "/fonts/**", "/favicon.ico").permitAll()
                         // 은행에서 넘어오는 요청이라 로그인 쿠키(Strict)가 없다. state 로 직접 검증한다
                         .requestMatchers("/openbanking/callback").permitAll()
+                        // 서버 간 호출 API: 사람 로그인 대신 X-API-Key 를 컨트롤러(AdminApiAuth)가 직접 검증한다. 키가 없으면 모두 401
+                        .requestMatchers("/api/admin/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/actuator/**").denyAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")   // 보안 대시보드·티켓·IP 차단 등 관리자 전용
@@ -104,9 +108,9 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(entryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
-                .addFilterBefore(new JwtAuthenticationFilter(jwtService, refreshTokens, cookies), AuthorizationFilter.class)
+                .addFilterBefore(new JwtAuthenticationFilter(jwtService, refreshTokens, cookies, loginSessions), AuthorizationFilter.class)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .csrf(csrf -> csrf.csrfTokenRepository(new CookieCsrfTokenRepository()))
+                .csrf(csrf -> csrf.csrfTokenRepository(new CookieCsrfTokenRepository()).ignoringRequestMatchers("/api/admin/**"))   // API 는 쿠키 인증이 아니라 키 인증이라 CSRF 대상이 아니다
                 .headers(headers -> headers
                         .contentSecurityPolicy(csp -> csp.policyDirectives(CSP))
                         .frameOptions(frame -> frame.deny())

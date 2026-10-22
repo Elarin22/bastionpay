@@ -39,9 +39,18 @@
             <li><a th:href="@{/dashboard}" th:classappend="${activeNav == 'dashboard'} ? 'is-active'" th:attr="aria-current=${activeNav == 'dashboard'} ? 'page'">대시보드</a></li>
             <li><a th:href="@{/transfer}" th:classappend="${activeNav == 'transfer'} ? 'is-active'" th:attr="aria-current=${activeNav == 'transfer'} ? 'page'">이체</a></li>
             <li><a th:href="@{/transactions}" th:classappend="${activeNav == 'transactions'} ? 'is-active'" th:attr="aria-current=${activeNav == 'transactions'} ? 'page'">거래내역</a></li>
+            <li th:if="${currentMember.role == 'ADMIN'}"><a th:href="@{/admin/security}" th:classappend="${activeNav == 'admin'} ? 'is-active'" th:attr="aria-current=${activeNav == 'admin'} ? 'page'">보안</a></li>
           </ul>
         </nav>
         <div class="site-actions">
+          <!-- 로그인 유지 타이머(글자 라벨 없이 시간과 연장 버튼만 보인다; 설명은 title·aria-label). 마지막 활동 후 30분이 지나면 로그아웃된다. 화면을 이동하면 자동으로 처음부터 다시 센다 -->
+          <form class="session" th:if="${sessionRemaining != null}" th:action="@{/session/extend}" method="post"
+                data-session-remaining="1800" th:attr="data-session-remaining=${sessionRemaining}" data-status-url="/session/status" th:data-status-url="@{/session/status}"
+                data-login-url="/login?expired" th:data-login-url="@{/login(expired=true)}">
+            <span class="session__time num-text" role="timer" aria-label="자동 로그아웃까지 남은 시간" title="자동 로그아웃까지 남은 시간"><span data-session-time>30:00</span></span>
+            <button class="session__extend" type="submit">연장</button>
+            <span class="sr-only" role="status" aria-live="polite" data-session-announce></span>
+          </form>
           <span class="auth-user"><strong th:text="${currentMember.nickname}">닉네임</strong>님</span>
           <form class="auth-form" th:action="@{/logout}" method="post">
             <button class="auth-link auth-link--button" type="submit">로그아웃</button>
@@ -77,6 +86,12 @@
           <h2 class="mega__title" id="mega-connect">연결</h2>
           <ul class="mega__list">
             <li><a th:href="@{/connect}" th:attr="aria-current=${activeNav == 'connect'} ? 'page'"><span class="mega__name">오픈뱅킹 연결</span><span class="mega__desc">다른 은행 계좌 연결하기</span></a></li>
+          </ul>
+        </section>
+        <section class="mega__group" aria-labelledby="mega-admin" th:if="${currentMember.role == 'ADMIN'}">
+          <h2 class="mega__title" id="mega-admin">관리</h2>
+          <ul class="mega__list">
+            <li><a th:href="@{/admin/security}" th:attr="aria-current=${activeNav == 'admin'} ? 'page'"><span class="mega__name">보안 대시보드</span><span class="mega__desc">보안 이벤트·잠긴 계정·검토 이체</span></a></li>
           </ul>
         </section>
         <div class="mega__foot">
