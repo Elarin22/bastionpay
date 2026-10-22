@@ -85,6 +85,8 @@ logging:
   level:
     root: INFO
     com.san.bastionpay: INFO
+  pattern:
+    level: "%5p [%X{traceId:-}]"   # 모든 로그 줄에 요청 추적 ID 를 붙인다(MdcLoggingFilter 가 MDC 에 넣는다)
 
 app:
   mail:
@@ -95,16 +97,39 @@ app:
     code-max-attempts: 5              # 코드 입력 실패 허용 횟수
     resend-interval: 60s              # 재전송 대기 시간
     request-ttl: 30m                  # 가입 진행 상태 보관 시간
+  security:
+    trusted-proxies: ${TRUSTED_PROXIES:}                           # X-Forwarded-For 를 믿는 프록시 IP(쉼표 구분). 비우면 실제 접속 주소만 쓴다
+    subject-hash-key: ${SECURITY_LOG_HMAC_KEY:${JWT_SECRET}}      # 로그인 계정 식별값(HMAC) 키. 기본은 JWT_SECRET 에서 파생
+    admin:
+      api-key: ${SECURITY_API_KEY:}                                # 서버 간 호출(n8n·회수봇)용 X-API-Key. 비우면 API 는 항상 401(닫힘)
+      admin-allowlist: ${ADMIN_ALLOWLIST:admin@test.com}           # 관리자 권한을 가져도 되는 이메일. 이 밖의 관리자는 과잉권한으로 표시
+    event-db-enabled: true                                         # false 면 보안 이벤트를 DB 에 저장하지 않는다(로그 파일에는 계속 남는다. 테스트용)
+    lockout:                                                       # 로그인 실패 자동 잠금: 합성 테스트 계정에만 적용
+      enabled: true
+      max-failures: 5                                              # 시간창 안에서 이 횟수만큼 실패하면 잠근다
+      window: 10m                                                  # 실패를 세는 시간창
+      lock-duration: 15m                                           # 잠금 시간
+      allowlist: ${LOCKOUT_ALLOWLIST:test@test.com,vip@test.com,vvip@test.com}   # 잠금 대상 이메일. 실제 가입 계정·관리자는 넣지 않는다
+    event-log-file: ${SECURITY_EVENT_LOG_FILE:logs/security-events.jsonl}   # 보안 이벤트 JSONL (Graylog·Wazuh 수집)
   logging:
     slow-request-ms: 1000          # RequestTimingInterceptor 임계값
   jwt:
     secret: ${JWT_SECRET}          # 환경변수 주입 필수, 커밋 금지
     access-token-ttl: 10m
-    refresh-token-ttl: 7d          # 로그인 시점 기준 절대 만료 (회전해도 늘어나지 않음)
+    refresh-token-ttl: 8h          # 로그인 후 최대 유지 시간. 활동해도 늘어나지 않는다(회전해도 처음 로그인 시점 기준). 활동 없음 만료는 app.session
     refresh-reuse-grace: 5s        # 방금 회전된 토큰의 동시 요청은 탈취로 보지 않는 유예 시간
     cookie:
       secure: true
       same-site: Strict
+  tier:                              # 회원 등급: 누적 이체 금액으로 자동 승급, 오래 이용하지 않으면 자동 강등
+    vip-threshold: 10000000          # 누적 이체 금액이 이 이상이면 VIP (원)
+    vvip-threshold: 50000000         # 이 이상이면 VVIP (원)
+    standard-limit: 2000000          # STANDARD 의 1회 이체 한도 (원)
+    vip-limit: 10000000              # VIP 의 1회 이체 한도 (원). VVIP 는 제한 없음
+    inactivity-months: 3             # 앱을 이만큼 이용하지 않으면 한 단계씩 강등
+  session:
+    idle-timeout: 30m              # 마지막 활동 후 이 시간이 지나면 다시 로그인한다. 활동하면 계속 늘어나고, 헤더의 연장 버튼으로도 늘린다
+    touch-interval: 5s             # 활동을 DB 에 반영하는 최소 간격(남은 시간 표시가 이만큼 어긋날 수 있다)
   openbanking:
     base-url: ${OPENBANKING_BASE_URL:http://localhost:8090}   # 가짜 오픈뱅킹(mock-openbanking)
     client-id: ${OPENBANKING_CLIENT_ID:}

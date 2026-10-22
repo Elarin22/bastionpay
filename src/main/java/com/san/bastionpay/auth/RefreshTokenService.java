@@ -1,5 +1,9 @@
 package com.san.bastionpay.auth;
 
+import com.san.bastionpay.audit.EventOutcome;
+import com.san.bastionpay.audit.SecurityEvent;
+import com.san.bastionpay.audit.SecurityEventRecorder;
+import com.san.bastionpay.audit.SecurityEventType;
 import com.san.bastionpay.member.Member;
 import com.san.bastionpay.member.MemberRepository;
 import com.san.bastionpay.member.MemberStatus;
@@ -23,7 +27,7 @@ import java.util.UUID;
  *   <li>사용할 때마다 새 토큰을 발급하고 이전 토큰은 사용 처리한다.</li>
  *   <li>사용된 토큰이 다시 오면 탈취로 보고 같은 family 의 토큰을 모두 폐기한다.</li>
  *   <li>단, 방금(유예 시간 이내) 회전된 토큰은 브라우저의 동시 요청일 수 있어 폐기 없이 거절만 한다.</li>
- *   <li>만료 시각은 로그인 시점에 고정된다(회전해도 늘어나지 않음). 7일 뒤에는 다시 로그인해야 한다.</li>
+ *   <li>만료 시각은 로그인 시점에 고정된다(회전해도 늘어나지 않음). 설정한 로그인 유지 시간(기본 30분)이 지나면 다시 로그인해야 한다.</li>
  * </ul>
  */
 @Slf4j
@@ -35,8 +39,11 @@ public class RefreshTokenService {
     private final RefreshTokenRepository tokens;
     private final MemberRepository members;
     private final JwtProperties props;
+    private final SecurityEventRecorder events;
 
-    public RefreshTokenService(RefreshTokenRepository tokens, MemberRepository members, JwtProperties props) {
+    public RefreshTokenService(RefreshTokenRepository tokens, MemberRepository members, JwtProperties props,
+                               SecurityEventRecorder events) {
+        this.events = events;
         this.tokens = tokens;
         this.members = members;
         this.props = props;
@@ -60,7 +67,8 @@ public class RefreshTokenService {
                 return Rotation.race();
             }
             tokens.revokeFamily(token.getFamilyId(), now);
-            log.warn("security_event type=REFRESH_TOKEN_REUSE memberId={}", token.getMemberId());
+            events.record(SecurityEvent.of(SecurityEventType.REFRESH_TOKEN_REUSE, EventOutcome.DENIED)
+                    .memberId(token.getMemberId()).reasonCode("REUSE_DETECTED"));
             return Rotation.invalid();
         }
         if (tokens.markUsed(token.getId(), now) == 0) {
@@ -73,6 +81,18 @@ public class RefreshTokenService {
             return Rotation.invalid();
         }
         return Rotation.rotated(member, create(member.getId(), token.getFamilyId(), token.getExpiresAt()));
+    }
+
+    /** 이 토큰이 속한 로그인(family)의 id. 모르는 토큰이면 비어 있다. */
+    @Transactional(readOnly = true)
+    public java.util.Optional<String> familyIdOf(String rawToken) {
+        return tokens.findByTokenHash(sha256(rawToken)).map(RefreshToken::getFamilyId);
+    }
+
+    /** 세션이 끝났을 때(활동 없음 만료 등): 그 로그인의 토큰을 모두 폐기한다. */
+    @Transactional
+    public void revokeFamily(String familyId) {
+        tokens.revokeFamily(familyId, LocalDateTime.now());
     }
 
     /** 로그아웃: 이 토큰이 속한 family 전체를 폐기한다. */
@@ -94,7 +114,7 @@ public class RefreshTokenService {
         RANDOM.nextBytes(bytes);
         String raw = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         tokens.save(new RefreshToken(sha256(raw), memberId, familyId, expiresAt));
-        return new Issued(raw, expiresAt);
+        return new Issued(raw, expiresAt, familyId);
     }
 
     private static String sha256(String value) {
@@ -106,7 +126,8 @@ public class RefreshTokenService {
         }
     }
 
-    public record Issued(String token, LocalDateTime expiresAt) {
+    /** familyId 는 이 로그인의 세션 id 로도 쓴다(Access Token 의 sid 클레임). */
+    public record Issued(String token, LocalDateTime expiresAt, String familyId) {
     }
 
     /**

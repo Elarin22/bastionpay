@@ -40,7 +40,7 @@ class OpenBankingServiceTest {
         links = mock(OpenBankingLinkRepository.class);
         states = mock(OpenBankingAuthStateRepository.class);
         cipher = new TokenCipher(props);
-        service = new OpenBankingService(props, client, links, states, cipher);
+        service = new OpenBankingService(props, client, links, states, cipher, mock(com.san.bastionpay.audit.SecurityEventRecorder.class));
     }
 
     @Test
@@ -62,7 +62,7 @@ class OpenBankingServiceTest {
     void beginFailsWhenNotConfigured() {
         OpenBankingProperties blank = new OpenBankingProperties("b", "", "", "r", "", "secret", Duration.ofMinutes(1),
                 Duration.ofSeconds(1), Duration.ofSeconds(1), null);
-        OpenBankingService unconfigured = new OpenBankingService(blank, client, links, states, cipher);
+        OpenBankingService unconfigured = new OpenBankingService(blank, client, links, states, cipher, mock(com.san.bastionpay.audit.SecurityEventRecorder.class));
 
         assertThatThrownBy(() -> unconfigured.begin(1L)).isInstanceOfSatisfying(BusinessException.class,
                 e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.OPENBANKING_NOT_CONFIGURED));
@@ -149,7 +149,7 @@ class OpenBankingServiceTest {
     void summaryWithoutOrgCodeSkipsBalanceCalls() {
         OpenBankingProperties noOrg = new OpenBankingProperties("b", "c", "s", "r", "", "secret", Duration.ofMinutes(1),
                 Duration.ofSeconds(1), Duration.ofSeconds(1), null);
-        OpenBankingService svc = new OpenBankingService(noOrg, client, links, states, cipher);
+        OpenBankingService svc = new OpenBankingService(noOrg, client, links, states, cipher, mock(com.san.bastionpay.audit.SecurityEventRecorder.class));
         OpenBankingLink link = new OpenBankingLink(7L, "110", cipher.encrypt("tok"), "login", LocalDateTime.now().plusDays(1));
         when(links.findByMemberId(7L)).thenReturn(Optional.of(link));
         when(client.accounts("tok", "110")).thenReturn(List.of(new OpenBankingClient.Account("a", "x", "b", "m", "h")));
@@ -245,7 +245,7 @@ class OpenBankingServiceTest {
     void transactionQueriesNeedOrgCodeAndKindMapsToInquiryType() {
         OpenBankingProperties noOrg = new OpenBankingProperties("b", "c", "s", "r", "", "secret", Duration.ofMinutes(1),
                 Duration.ofSeconds(1), Duration.ofSeconds(1), null);
-        OpenBankingService svc = new OpenBankingService(noOrg, client, links, states, cipher);
+        OpenBankingService svc = new OpenBankingService(noOrg, client, links, states, cipher, mock(com.san.bastionpay.audit.SecurityEventRecorder.class));
 
         assertThatThrownBy(() -> svc.history(7L, "a", 30, "all", 1)).isInstanceOfSatisfying(BusinessException.class,
                 e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.OPENBANKING_NOT_CONFIGURED));

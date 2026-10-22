@@ -22,7 +22,7 @@ public record TransferForm(
 
         @NotNull(message = "이체 금액을 입력해 주세요.")
         @Min(value = 1, message = "이체 금액은 1원 이상이어야 합니다.")
-        @Max(value = 10_000_000, message = "1회 이체 한도는 1,000만원입니다.")
+        @Max(value = 999_999_999_999L, message = "이체 금액이 너무 큽니다.")
         Long amount,
 
         @Size(max = 20, message = "받는 분 통장 표시는 20자까지 입력할 수 있습니다.")

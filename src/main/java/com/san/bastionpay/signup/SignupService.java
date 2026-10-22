@@ -70,23 +70,18 @@ public class SignupService {
         });
 
         String email = normalize(rawEmail);
+        // 이미 가입된 이메일, 이미 인증을 마치고 가입을 진행 중인 이메일은 다시 인증할 수 없다. 메일도 보내지 않는다
+        rejectIfTaken(email);
         String token = randomToken();
         String code = randomCode();
         LocalDateTime now = LocalDateTime.now();
-        // 이미 가입된 이메일은 화면 응답은 같게 하되 코드를 맞출 수 없는 값으로 저장한다
-        boolean registered = members.existsByEmail(email);
         String tokenHash = sha256(token);
-        SignupRequest request = new SignupRequest(tokenHash, email,
-                registered ? sha256(randomToken()) : codeHash(tokenHash, code),
+        SignupRequest request = new SignupRequest(tokenHash, email, codeHash(tokenHash, code),
                 now.plus(props.codeTtl()), now.plus(props.requestTtl()));
         requests.save(request);
 
         try {
-            if (registered) {
-                mailService.sendAlreadyRegistered(email);
-            } else {
-                mailService.sendVerificationCode(email, code, props.codeTtl());
-            }
+            mailService.sendVerificationCode(email, code, props.codeTtl());
         } catch (MailSendException e) {
             requests.delete(request);
             log.error("인증 메일 발송 실패: {}", e.getMessage());
@@ -105,18 +100,23 @@ public class SignupService {
         if (!wait.isNegative() && !wait.isZero()) {
             throw new SignupException(wait.toSeconds() + 1 + "초 뒤에 다시 요청할 수 있습니다.");
         }
-        boolean registered = members.existsByEmail(request.getEmail());
+        rejectIfTaken(request.getEmail());   // 그 사이 같은 이메일로 가입했거나 인증을 마친 사람이 생겼을 수 있다
         String code = randomCode();
-        saveRenewedCode(request, registered ? sha256(randomToken()) : codeHash(request.getTokenHash(), code));
+        saveRenewedCode(request, codeHash(request.getTokenHash(), code));
         try {
-            if (registered) {
-                mailService.sendAlreadyRegistered(request.getEmail());
-            } else {
-                mailService.sendVerificationCode(request.getEmail(), code, props.codeTtl());
-            }
+            mailService.sendVerificationCode(request.getEmail(), code, props.codeTtl());
         } catch (MailSendException e) {
             log.error("인증 메일 재발송 실패: {}", e.getMessage());
             throw new SignupException("인증 메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.");
+        }
+    }
+
+    private void rejectIfTaken(String email) {
+        if (members.existsByEmail(email)) {
+            throw new AlreadyRegisteredException();
+        }
+        if (requests.existsByEmailAndEmailVerifiedAtIsNotNullAndExpiresAtAfter(email, LocalDateTime.now())) {
+            throw new SignupException("이미 이 이메일로 인증을 마치고 가입을 진행 중입니다. 진행 중인 가입을 마치거나 잠시 후 다시 시도해 주세요.");
         }
     }
 
@@ -156,6 +156,10 @@ public class SignupService {
         if (!MessageDigest.isEqual(expected, actual)) {
             int left = props.codeMaxAttempts() - request.getCodeAttempts();
             throw new SignupException("인증 코드가 올바르지 않습니다. (남은 시도 " + Math.max(left, 0) + "회)");
+        }
+        // 같은 이메일을 다른 브라우저에서 먼저 인증한 사람이 있으면 두 번째 인증은 받아 주지 않는다
+        if (requests.existsByEmailAndEmailVerifiedAtIsNotNullAndExpiresAtAfterAndIdNot(request.getEmail(), LocalDateTime.now(), request.getId())) {
+            throw new SignupException("이미 이 이메일로 인증을 마치고 가입을 진행 중입니다. 진행 중인 가입을 마치거나 잠시 후 다시 시도해 주세요.");
         }
         request.markEmailVerified();
         requests.save(request);

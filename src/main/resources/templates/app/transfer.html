@@ -54,8 +54,11 @@
         </div>
         <div class="field">
           <label for="amount">이체 금액 (원)</label>
-          <input id="amount" name="amount" type="text" inputmode="numeric" th:value="${transferForm.amount}" required maxlength="10" autocomplete="off" class="field__money">
-          <p class="field__hint">1회 이체 한도 10,000,000원</p>
+          <input id="amount" name="amount" type="text" inputmode="numeric" th:value="${transferForm.amount}" required maxlength="12" autocomplete="off" class="field__money">
+          <p class="field__hint" th:if="${tierStatus != null}">
+            <span th:text="'1회 이체 한도 ' + (${tierStatus.limit.isPresent()} ? ${#numbers.formatInteger(tierStatus.limit.getAsLong(), 3, 'COMMA')} + '원' : '제한 없음') + ' (' + ${tierStatus.tier} + ')'">1회 이체 한도 2,000,000원 (STANDARD)</span>
+            <span th:if="${tierStatus.nextThreshold.isPresent()}" th:text="' · 누적 이체 ' + ${#numbers.formatInteger(tierStatus.cumulative, 1, 'COMMA')} + '원, ' + ${tierStatus.next} + '까지 ' + ${#numbers.formatInteger(tierStatus.remainingToNext(), 1, 'COMMA')} + '원'">누적 이체 0원</span>
+          </p>
         </div>
         <div class="field">
           <label for="memo">받는 분 통장 표시 <span class="optional">선택</span></label>
