@@ -1,5 +1,6 @@
 package com.san.bastionpay.admin;
 
+import com.san.bastionpay.audit.Actor;
 import com.san.bastionpay.audit.AuditLog;
 import com.san.bastionpay.audit.AuditLogRepository;
 import com.san.bastionpay.audit.EventOutcome;
@@ -54,6 +55,7 @@ class SecurityOperationsTest {
     @Autowired SecurityEventRepository events;
     @Autowired AuditLogRepository audits;
     @Autowired BlockedIpService blocked;
+    @Autowired IncidentService incidents;
     @Autowired JdbcTemplate jdbc;
     @Autowired EntityManager em;
 
@@ -84,6 +86,19 @@ class SecurityOperationsTest {
         em.flush();
         jdbc.update("update member set role = 'ADMIN' where email = ?", email);
         em.clear();
+    }
+
+    /** 테스트 데이터(db/seed/test-data.sql)가 들어 있어도 관리자가 admin@test.com 하나뿐인 상태로 시작한다(롤백된다). */
+    private void keepOnlyAdmin() {
+        em.flush();
+        jdbc.update("update member set role = 'USER' where role = 'ADMIN' and email <> 'admin@test.com'");
+        em.clear();
+    }
+
+    /** 이미 열려 있는 티켓(시험 데이터 등)을 모두 닫고 시작한다(롤백된다). */
+    private void closeExistingTickets() {
+        incidents.closeAllOpen(null, Actor.system());
+        em.flush();
     }
 
     private void securityEvent(String ip, SecurityEventType type, Severity severity) {
@@ -143,6 +158,7 @@ class SecurityOperationsTest {
 
     @Test
     void closeAllClosesEveryOpenTicketOrOnlyTheChosenSeverity() throws Exception {
+        closeExistingTickets();
         securityEvent("203.0.113.1", SecurityEventType.LOGIN_FAILURE, Severity.HIGH);
         securityEvent("203.0.113.2", SecurityEventType.LOGIN_FAILURE, Severity.LOW);
         securityEvent("203.0.113.3", SecurityEventType.LOGIN_FAILURE, Severity.LOW);
@@ -174,6 +190,7 @@ class SecurityOperationsTest {
 
     @Test
     void apiCanCloseAllOpenTickets() throws Exception {
+        closeExistingTickets();
         securityEvent("203.0.113.1", SecurityEventType.LOGIN_FAILURE, Severity.HIGH);
         securityEvent("203.0.113.2", SecurityEventType.LOGIN_FAILURE, Severity.LOW);
         api("POST", "/api/admin/incident", "{\"src_ip\":\"203.0.113.1\"}");
@@ -288,6 +305,7 @@ class SecurityOperationsTest {
 
     @Test
     void revokeTakesAdminRightsAwayAndCutsTheirSessionButNeverFromTheLastAdminOrYourself() throws Exception {
+        keepOnlyAdmin();
         promoteToAdmin("vip@test.com");
         Cookie vipToken = loginAs("vip@test.com");
         mvc.perform(get("/admin/security").cookie(vipToken)).andExpect(status().isOk());
@@ -306,6 +324,7 @@ class SecurityOperationsTest {
 
     @Test
     void adminsOutsideTheAllowlistAreShownAsOverPrivileged() throws Exception {
+        keepOnlyAdmin();
         promoteToAdmin("vip@test.com");
 
         String html = mvc.perform(get("/admin/security/accounts").with(as("admin@test.com"))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
