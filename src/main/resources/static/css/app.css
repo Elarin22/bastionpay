@@ -304,6 +304,13 @@ img, svg { display: block; max-width: 100%; }
   .intro__body { max-width: none; }
 }
 
+/* 로그인 후 헤더: 가운데 메뉴(대시보드·이체·거래내역·보안)와 오른쪽 타이머·닉네임이 한 줄에 다 들어가지 않는 폭에서는
+   가운데 메뉴를 감춘다. 같은 항목이 햄버거 버튼의 전체 메뉴에 있고, 타이머·연장 버튼·햄버거는 그대로 보인다 */
+@media (max-width: 72rem) {
+  .site-header__inner:has(.site-nav-center) { display: flex; justify-content: space-between; gap: 1rem; }
+  .site-nav-center { display: none; }
+}
+
 @media (max-width: 52rem) {
   .site-header__inner { display: flex; justify-content: space-between; min-height: 4rem; }
   .site-nav-center, .site-actions .auth-user, .site-actions .auth-form { display: none; }

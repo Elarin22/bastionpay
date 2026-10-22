@@ -8,8 +8,38 @@ Flyway 마이그레이션과 달리 앱이 자동으로 실행하지 않는다. 
 |---|---|---|
 | `db/seed/member.sql` | `bastionpay_db` (3306) | BastionPay 더미 회원 4명 |
 | `mock-openbanking/db/seed/mockbank.sql` | `mockbank_db` (3307) | 가짜 은행 고객·계좌·거래내역, 이용기관(BastionPay) |
+| `db/seed/test-data.sql` | `bastionpay_db` (3306) | **테스트용**: 보안 대시보드·등급·이체 검토를 시험할 회원 5명, 보안 이벤트 약 145건, 티켓 7건, 차단 IP 4개, 감사 기록 14건, 검토 필요 이체 12건 |
+| `mock-openbanking/db/seed/mockbank-test.sql` | `mockbank_db` (3307) | **테스트용**: 거래 40건짜리 계좌(쪽 나누기), 잔액 50억·1,000원 계좌, 잠긴 고객, 해지 계좌 |
 
-실행 순서: 각 DB 에 앱을 한 번 띄워 Flyway 로 테이블을 만든 뒤 → `member.sql` → `mockbank.sql`.
+실행 순서: 각 DB 에 앱을 한 번 띄워 Flyway 로 테이블을 만든 뒤 → `member.sql` → `mockbank.sql`. 테스트용 파일(`test-data.sql`, `mockbank-test.sql`)은 **기본 시드를 이미 포함**하고 있어서(test·vip·vvip·admin 계정, 가짜 은행 기본 고객·계좌·이용기관) 이 파일만 넣어도 시험 환경이 완성된다. 본인이 만든 개인 계정은 들어 있지 않다. 단 기본 시드가 다시 적용되므로 기본 계좌의 잔액은 시드 값으로 돌아간다.
+
+워크벤치 없이 넣기(프로젝트 루트에서, 비밀번호는 각 컨테이너의 root 비밀번호):
+```
+docker cp db/seed/test-data.sql mysql-server:/tmp/test-data.sql
+docker exec -it mysql-server sh -c "mysql -uroot -p bastionpay_db --default-character-set=utf8mb4 < /tmp/test-data.sql"
+docker cp mock-openbanking/db/seed/mockbank-test.sql mockbank-mysql:/tmp/mockbank-test.sql
+docker exec -it mockbank-mysql sh -c "mysql -uroot -p mockbank_db --default-character-set=utf8mb4 < /tmp/mockbank-test.sql"
+```
+둘 다 여러 번 실행해도 같은 결과가 된다(시각은 실행할 때마다 현재 기준으로 다시 잡는다).
+
+### 테스트용 데이터로 시험할 수 있는 것
+| 회원(BastionPay, 비밀번호 `12345678A!`) | 시험 |
+|---|---|
+| `locked@test.com` | 관리자가 잠근 계정: 로그인 불가, 계정·권한 탭에서 잠금 해제 |
+| `review@test.com` | 개요의 "검토가 필요한 이체" 12건(10건씩 쪽 나누기) |
+| `volume@test.com` | 누적 이체 950만원 → 50만원 이상 이체가 완료되면 VIP 로 자동 승급 |
+| `inactive@test.com` | VIP 인데 4개월 미이용 → 로그인하거나 새벽 배치가 돌면 STANDARD 로 자동 강등 |
+| `overpriv@test.com` | 허용 목록 밖 관리자 → "허용 목록 밖 관리자"에 표시, 권한 회수 |
+
+| 가짜 은행 휴대폰 번호 | 시험 |
+|---|---|
+| 010-0000-0011 | 거래 40건짜리 "거래내역 많은 통장"(거래내역 10건씩), 거래 없는 "빈 통장" |
+| 010-0000-0012 | 잔액 50억 원 → VVIP 제한 없음 이체 |
+| 010-0000-0013 | 잔액 1,000원 → 잔액 부족 |
+| 010-0000-0014 | 잠긴 고객 → 인증 불가 |
+| 010-0000-0015 | 해지된 계좌 → 받는 계좌로 쓰면 이체 실패·환불 |
+
+보안 대시보드에는 198.18.0.x / 100.64.0.x 에서 온 로그인 실패·접근 거부·차단 등 이벤트가 최근 7일에 걸쳐 들어 있어 분류별 현황, 필터, 집계, 쪽 나누기를 바로 볼 수 있다.
 
 ## 더미 회원 (비밀번호는 모두 `12345678A!`)
 
