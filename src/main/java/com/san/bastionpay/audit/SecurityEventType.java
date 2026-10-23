@@ -19,6 +19,7 @@ public enum SecurityEventType {
     SIGNUP_COMPLETE(Severity.INFO, Category.AUTH),
     OPENBANKING_LINKED(Severity.INFO, Category.OPENBANKING),
     OPENBANKING_UNLINKED(Severity.INFO, Category.OPENBANKING),
+    OPENBANKING_LINK_REJECTED(Severity.MEDIUM, Category.OPENBANKING),
     SESSION_EXPIRED(Severity.INFO, Category.AUTH),
     TIER_CHANGED(Severity.INFO, Category.ACCOUNT),
     INCIDENT_CREATED(Severity.INFO, Category.RESPONSE),

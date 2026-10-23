@@ -10,6 +10,8 @@ public interface OpenBankingLinkRepository extends JpaRepository<OpenBankingLink
 
     Optional<OpenBankingLink> findByMemberId(Long memberId);
 
+    Optional<OpenBankingLink> findByUserSeqNo(String userSeqNo);
+
     @Transactional
     void deleteByMemberId(Long memberId);
 }
