@@ -8,7 +8,7 @@ import java.util.List;
 public interface OpenBankingClient {
 
     /** 인증 코드를 access token 으로 교환한다. */
-    Token exchangeCode(String code);
+    Token exchangeCode(String code, String redirectUri);
 
     /** 사용자에게 등록된 계좌 목록. */
     List<Account> accounts(String accessToken, String userSeqNo);

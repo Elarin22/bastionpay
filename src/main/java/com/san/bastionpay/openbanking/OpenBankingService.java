@@ -76,6 +76,11 @@ public class OpenBankingService {
 
     /** 인증 시작: state 를 만들어 저장하고 은행 인증 화면 주소를 돌려준다. */
     public Authorization begin(long memberId) {
+        return begin(memberId, props.redirectUri());
+    }
+
+    /** redirectUri 는 허용 목록에서 고른 값이어야 한다({@link RedirectUris}). */
+    public Authorization begin(long memberId, String redirectUri) {
         requireConfigured();
         String state = randomState();
         states.save(new OpenBankingAuthState(sha256(state), memberId, LocalDateTime.now().plus(props.stateTtl())));
@@ -83,7 +88,7 @@ public class OpenBankingService {
                 .path("/oauth/2.0/authorize")
                 .queryParam("response_type", "code")
                 .queryParam("client_id", props.clientId())
-                .queryParam("redirect_uri", props.redirectUri())
+                .queryParam("redirect_uri", redirectUri)
                 .queryParam("scope", SCOPE)
                 .queryParam("state", state)
                 .queryParam("auth_type", "0")
@@ -93,6 +98,11 @@ public class OpenBankingService {
 
     /** 콜백 처리: state 를 검증하고 코드를 토큰으로 교환해 저장한다. 연결된 회원 id 를 돌려준다. */
     public long complete(String stateParam, String stateCookie, String code) {
+        return complete(stateParam, stateCookie, code, props.redirectUri());
+    }
+
+    /** 토큰 교환의 redirect_uri 는 인증을 시작할 때 보낸 값과 같아야 한다. */
+    public long complete(String stateParam, String stateCookie, String code, String redirectUri) {
         requireConfigured();
         if (isBlank(stateParam) || isBlank(stateCookie) || isBlank(code)
                 || !MessageDigest.isEqual(stateParam.getBytes(StandardCharsets.UTF_8), stateCookie.getBytes(StandardCharsets.UTF_8))) {
@@ -106,16 +116,30 @@ public class OpenBankingService {
             throw new BusinessException(ErrorCode.OPENBANKING_AUTH_FAILED, "사용됐거나 만료된 state");
         }
 
-        Token token = client.exchangeCode(code);
+        Token token = client.exchangeCode(code, redirectUri);
         LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(token.expiresInSeconds());
         String encrypted = cipher.encrypt(token.accessToken());
         String scope = isBlank(token.scope()) ? SCOPE : token.scope();
+        // 이미 다른 회원에게 연결된 은행 고객이면 연결하지 않는다(같은 계좌를 여러 계정이 쓰는 것을 막는다)
+        OpenBankingLink holder = links.findByUserSeqNo(token.userSeqNo()).orElse(null);
+        if (holder != null && !holder.getMemberId().equals(saved.getMemberId())) {
+            events.record(SecurityEvent.of(SecurityEventType.OPENBANKING_LINK_REJECTED, EventOutcome.FAILURE)
+                    .memberId(saved.getMemberId()).reasonCode("ALREADY_LINKED"));
+            throw new BusinessException(ErrorCode.OPENBANKING_ALREADY_LINKED);
+        }
         OpenBankingLink link = links.findByMemberId(saved.getMemberId()).orElse(null);
-        if (link == null) {
-            links.save(new OpenBankingLink(saved.getMemberId(), token.userSeqNo(), encrypted, scope, expiresAt));
-        } else {
-            link.renew(token.userSeqNo(), encrypted, scope, expiresAt);
-            links.save(link);
+        try {
+            if (link == null) {
+                links.save(new OpenBankingLink(saved.getMemberId(), token.userSeqNo(), encrypted, scope, expiresAt));
+            } else {
+                link.renew(token.userSeqNo(), encrypted, scope, expiresAt);
+                links.save(link);
+            }
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // 동시에 다른 회원이 같은 고객을 연결한 경우(유일 제약)
+            events.record(SecurityEvent.of(SecurityEventType.OPENBANKING_LINK_REJECTED, EventOutcome.FAILURE)
+                    .memberId(saved.getMemberId()).reasonCode("ALREADY_LINKED"));
+            throw new BusinessException(ErrorCode.OPENBANKING_ALREADY_LINKED);
         }
         events.record(SecurityEvent.of(SecurityEventType.OPENBANKING_LINKED, EventOutcome.SUCCESS).memberId(saved.getMemberId()));
         return saved.getMemberId();

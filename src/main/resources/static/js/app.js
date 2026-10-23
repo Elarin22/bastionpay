@@ -197,4 +197,22 @@
         .then(function () { button.disabled = false; });
     });
   }
+  // 이체 금액: 입력하는 동안 3자리마다 쉼표를 찍어 보여 주고, 보낼 때는 쉼표를 뺀 숫자만 보낸다.
+  var money = document.querySelector('input.field__money');
+  if (money) {
+    var group = function (digits) { return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
+    var format = function () {
+      var before = money.value.slice(0, money.selectionStart || 0).replace(/\D/g, '').length;   // 커서 앞 숫자 개수
+      var digits = money.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+      var text = group(digits);
+      if (text === money.value) return;
+      money.value = text;
+      var pos = 0, seen = 0;
+      while (pos < text.length && seen < before) { if (text.charAt(pos) !== ',') seen++; pos++; }
+      money.setSelectionRange(pos, pos);
+    };
+    money.addEventListener('input', format);
+    money.value = group(money.value.replace(/\D/g, ''));
+    if (money.form) money.form.addEventListener('submit', function () { money.value = money.value.replace(/\D/g, ''); });
+  }
 })();
