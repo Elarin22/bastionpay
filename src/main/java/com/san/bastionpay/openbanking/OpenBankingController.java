@@ -7,6 +7,7 @@ import com.san.bastionpay.core.exception.ErrorCode;
 import com.san.bastionpay.core.util.LogSanitizer;
 import com.san.bastionpay.openbanking.OpenBankingClient.Account;
 import com.san.bastionpay.openbanking.OpenBankingClient.Balance;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -34,13 +35,17 @@ public class OpenBankingController {
     private static final Map<String, String> RESULTS = Map.of(
             "ok", "오픈뱅킹 계좌를 연결했습니다.",
             "cancelled", "연결이 취소되었습니다. 필요하면 다시 시도해 주세요.",
-            "disconnected", "오픈뱅킹 연결을 해제했습니다.");
+            "disconnected", "오픈뱅킹 연결을 해제했습니다.",
+            "duplicate", ErrorCode.OPENBANKING_ALREADY_LINKED.message());
 
     private final OpenBankingService service;
     private final JwtProperties jwt;
     private final Duration stateTtl;
+    private final RedirectUris redirectUris;
 
-    public OpenBankingController(OpenBankingService service, JwtProperties jwt, OpenBankingProperties props) {
+    public OpenBankingController(OpenBankingService service, JwtProperties jwt, OpenBankingProperties props,
+                                 RedirectUris redirectUris) {
+        this.redirectUris = redirectUris;
         this.service = service;
         this.jwt = jwt;
         this.stateTtl = props.stateTtl();
@@ -58,8 +63,8 @@ public class OpenBankingController {
      * CSP form-action 'self' 가 다른 사이트로 가는 리다이렉트를 막기 때문이다.
      */
     @GetMapping("/openbanking/authorize")
-    public String authorize(@AuthenticationPrincipal AuthMember member, HttpServletResponse response) {
-        OpenBankingService.Authorization auth = service.begin(member.id());
+    public String authorize(@AuthenticationPrincipal AuthMember member, HttpServletRequest request, HttpServletResponse response) {
+        OpenBankingService.Authorization auth = service.begin(member.id(), redirectUris.forRequest(request));
         // 은행에서 돌아오는 요청에도 실려야 하므로 SameSite=Lax. 이 경로에서만 보낸다
         addStateCookie(response, auth.state(), stateTtl);
         return "redirect:" + auth.url();
@@ -74,7 +79,7 @@ public class OpenBankingController {
     public String callback(@RequestParam(required = false) String code, @RequestParam(required = false) String state,
                            @RequestParam(required = false) String error,
                            @CookieValue(name = STATE_COOKIE, required = false) String stateCookie,
-                           HttpServletResponse response, Model model) {
+                           HttpServletRequest request, HttpServletResponse response, Model model) {
         addStateCookie(response, "", Duration.ZERO);
         if (error != null) {
             // 사용자가 취소했거나 은행이 거절한 경우
@@ -82,7 +87,15 @@ public class OpenBankingController {
             model.addAttribute("target", "/connect?result=cancelled");
             return "app/openbanking-callback";
         }
-        service.complete(state, stateCookie, code);
+        try {
+            service.complete(state, stateCookie, code, redirectUris.forRequest(request));
+        } catch (BusinessException e) {
+            if (e.getErrorCode() != ErrorCode.OPENBANKING_ALREADY_LINKED) {
+                throw e;
+            }
+            model.addAttribute("target", "/connect?result=duplicate");
+            return "app/openbanking-callback";
+        }
         model.addAttribute("target", "/connect?result=ok");
         return "app/openbanking-callback";
     }

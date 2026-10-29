@@ -30,7 +30,8 @@ public enum ErrorCode {
     OPENBANKING_API_ERROR("O001", HttpStatus.BAD_GATEWAY, "오픈뱅킹 연동에 문제가 있습니다. 잠시 후 다시 시도해 주세요."),
     OPENBANKING_NOT_CONFIGURED("O002", HttpStatus.SERVICE_UNAVAILABLE, "오픈뱅킹 연동이 아직 설정되지 않았습니다. 관리자에게 문의해 주세요."),
     OPENBANKING_AUTH_FAILED("O003", HttpStatus.BAD_REQUEST, "오픈뱅킹 인증을 확인하지 못했습니다. 연결을 처음부터 다시 시도해 주세요."),
-    OPENBANKING_NOT_LINKED("O004", HttpStatus.CONFLICT, "오픈뱅킹이 연결되어 있지 않습니다. 먼저 계좌를 연결해 주세요.");
+    OPENBANKING_NOT_LINKED("O004", HttpStatus.CONFLICT, "오픈뱅킹이 연결되어 있지 않습니다. 먼저 계좌를 연결해 주세요."),
+    OPENBANKING_ALREADY_LINKED("O005", HttpStatus.CONFLICT, "이미 다른 계정에 연결된 계좌입니다. 본인 명의의 다른 계좌로 연결해 주세요.");
 
     private final String code;
     private final HttpStatus status;

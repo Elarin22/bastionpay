@@ -75,7 +75,7 @@ class OpenBankingServiceTest {
         assertThatThrownBy(() -> service.complete("aaa", "aaa", "")).isInstanceOf(BusinessException.class);
 
         verify(states, never()).consume(anyString());
-        verify(client, never()).exchangeCode(anyString());
+        verify(client, never()).exchangeCode(anyString(), anyString());
     }
 
     @Test
@@ -85,7 +85,7 @@ class OpenBankingServiceTest {
         when(states.consume(anyString())).thenReturn(0);   // 동시에 온 다른 요청이 먼저 사용함
 
         assertThatThrownBy(() -> service.complete("s", "s", "code")).isInstanceOf(BusinessException.class);
-        verify(client, never()).exchangeCode(anyString());
+        verify(client, never()).exchangeCode(anyString(), anyString());
     }
 
     @Test
@@ -95,7 +95,7 @@ class OpenBankingServiceTest {
         when(states.consume(anyString())).thenReturn(1);
 
         assertThatThrownBy(() -> service.complete("s", "s", "code")).isInstanceOf(BusinessException.class);
-        verify(client, never()).exchangeCode(anyString());
+        verify(client, never()).exchangeCode(anyString(), anyString());
     }
 
     @Test
@@ -104,7 +104,8 @@ class OpenBankingServiceTest {
                 Optional.of(new OpenBankingAuthState("h", 7L, LocalDateTime.now().plusMinutes(5))));
         when(states.consume(anyString())).thenReturn(1);
         when(links.findByMemberId(7L)).thenReturn(Optional.empty());
-        when(client.exchangeCode("code")).thenReturn(new OpenBankingClient.Token("plain-token", 3600, "login inquiry", "110"));
+        when(links.findByUserSeqNo("110")).thenReturn(Optional.empty());
+        when(client.exchangeCode(org.mockito.ArgumentMatchers.eq("code"), anyString())).thenReturn(new OpenBankingClient.Token("plain-token", 3600, "login inquiry", "110"));
 
         long memberId = service.complete("s", "s", "code");
 
@@ -114,6 +115,36 @@ class OpenBankingServiceTest {
         assertThat(link.getValue().getAccessTokenEnc()).doesNotContain("plain-token");
         assertThat(cipher.decrypt(link.getValue().getAccessTokenEnc())).isEqualTo("plain-token");
         assertThat(link.getValue().getUserSeqNo()).isEqualTo("110");
+    }
+
+    @Test
+    void completeRejectsBankCustomerAlreadyLinkedToAnotherMember() {
+        when(states.findByStateHash(anyString())).thenReturn(
+                Optional.of(new OpenBankingAuthState("h", 7L, LocalDateTime.now().plusMinutes(5))));
+        when(states.consume(anyString())).thenReturn(1);
+        when(client.exchangeCode(org.mockito.ArgumentMatchers.eq("code"), anyString())).thenReturn(new OpenBankingClient.Token("plain-token", 3600, "login inquiry", "110"));
+        when(links.findByUserSeqNo("110")).thenReturn(Optional.of(
+                new OpenBankingLink(8L, "110", "enc", "login", LocalDateTime.now().plusHours(1))));
+
+        assertThatThrownBy(() -> service.complete("s", "s", "code"))
+                .isInstanceOf(com.san.bastionpay.core.exception.BusinessException.class)
+                .extracting(e -> ((com.san.bastionpay.core.exception.BusinessException) e).getErrorCode())
+                .isEqualTo(com.san.bastionpay.core.exception.ErrorCode.OPENBANKING_ALREADY_LINKED);
+        verify(links, never()).save(any());
+    }
+
+    @Test
+    void completeAllowsRelinkingTheSameBankCustomerByTheSameMember() {
+        when(states.findByStateHash(anyString())).thenReturn(
+                Optional.of(new OpenBankingAuthState("h", 7L, LocalDateTime.now().plusMinutes(5))));
+        when(states.consume(anyString())).thenReturn(1);
+        OpenBankingLink mine = new OpenBankingLink(7L, "110", "enc", "login", LocalDateTime.now().plusHours(1));
+        when(links.findByUserSeqNo("110")).thenReturn(Optional.of(mine));
+        when(links.findByMemberId(7L)).thenReturn(Optional.of(mine));
+        when(client.exchangeCode(org.mockito.ArgumentMatchers.eq("code"), anyString())).thenReturn(new OpenBankingClient.Token("plain-token", 3600, "login inquiry", "110"));
+
+        assertThat(service.complete("s", "s", "code")).isEqualTo(7L);
+        verify(links).save(mine);
     }
 
     @Test

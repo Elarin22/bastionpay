@@ -46,12 +46,12 @@ public class RestOpenBankingClient implements OpenBankingClient {
     }
 
     @Override
-    public Token exchangeCode(String code) {
+    public Token exchangeCode(String code, String redirectUri) {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("code", code);
         form.add("client_id", props.clientId());
         form.add("client_secret", props.clientSecret());
-        form.add("redirect_uri", props.redirectUri());
+        form.add("redirect_uri", redirectUri);
         form.add("grant_type", "authorization_code");
 
         TokenResponse r = call("token", () -> http.post().uri("/oauth/2.0/token")

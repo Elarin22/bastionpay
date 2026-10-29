@@ -58,7 +58,7 @@ class RestOpenBankingClientTest {
                          "refresh_token":"r","scope":"login inquiry","user_seq_no":"1100000001","extra":"x"}
                         """, MediaType.APPLICATION_JSON));
 
-        OpenBankingClient.Token token = client.exchangeCode("abc");
+        OpenBankingClient.Token token = client.exchangeCode("abc", props.redirectUri());
 
         assertThat(token.accessToken()).isEqualTo("tok-1");
         assertThat(token.userSeqNo()).isEqualTo("1100000001");
@@ -72,7 +72,7 @@ class RestOpenBankingClientTest {
         server.expect(requestTo(BASE + "/oauth/2.0/token"))
                 .andRespond(withSuccess("{\"error\":\"invalid_grant\"}", MediaType.APPLICATION_JSON));
 
-        assertThatThrownBy(() -> client.exchangeCode("bad"))
+        assertThatThrownBy(() -> client.exchangeCode("bad", props.redirectUri()))
                 .isInstanceOfSatisfying(BusinessException.class,
                         e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.OPENBANKING_AUTH_FAILED));
     }
