@@ -35,8 +35,7 @@ class AppPagesTest {
 
     @Test
     void everyAppPageRequiresLogin() throws Exception {
-        for (String path : new String[]{"/dashboard", "/accounts", "/accounts/a1", "/deposits", "/savings",
-                "/virtual-accounts", "/virtual-accounts/v1", "/transactions", "/transfer", "/connect"}) {
+        for (String path : new String[]{"/dashboard", "/accounts", "/accounts/a1", "/transactions", "/transfer", "/connect"}) {
             mvc.perform(get(path).accept(MediaType.TEXT_HTML))
                     .andExpect(status().isFound()).andExpect(header().string("Location", "/login?required"));
         }
@@ -44,19 +43,18 @@ class AppPagesTest {
 
     @Test
     void headerKeepsOnlyFrequentItemsAndMegaMenuHoldsEverything() throws Exception {
-        String html = page("/deposits");
+        String html = page("/dashboard");
 
         // 헤더 가운데 카테고리는 3개만
         String center = html.substring(html.indexOf("class=\"site-nav-center\""), html.indexOf("class=\"site-actions\""));
-        assertThat(center).contains("대시보드", "이체", "거래내역").doesNotContain("예금", "적금", "가상계좌", "오픈뱅킹");
+        assertThat(center).contains("대시보드", "이체", "거래내역").doesNotContain("오픈뱅킹");
 
         // 전체 메뉴에는 모든 항목이 카테고리별로 있다
         String mega = html.substring(html.indexOf("id=\"mega-menu\""));
-        assertThat(mega).contains("이용", "자산", "연결", "입출금 계좌", "예금", "적금", "가상계좌", "오픈뱅킹 연결", "로그아웃");
-        assertThat(mega).contains("href=\"/accounts\"", "href=\"/deposits\"", "href=\"/savings\"",
-                "href=\"/virtual-accounts\"", "href=\"/connect\"", "href=\"/transfer\"", "href=\"/transactions\"");
+        assertThat(mega).contains("이용", "자산", "연결", "입출금 계좌", "오픈뱅킹 연결", "로그아웃");
+        assertThat(mega).contains("href=\"/accounts\"", "href=\"/connect\"", "href=\"/transfer\"", "href=\"/transactions\"");
         // 현재 페이지 표시, 사이드바는 더 이상 없다
-        assertThat(mega).contains("<a href=\"/deposits\" aria-current=\"page\">");
+        assertThat(mega).contains("<a href=\"/dashboard\" aria-current=\"page\">");
         assertThat(html).doesNotContain("class=\"sidebar\"");
     }
 
@@ -69,9 +67,15 @@ class AppPagesTest {
     }
 
     @Test
-    void savingsAndDepositsShowProductDetails() throws Exception {
-        assertThat(page("/savings")).contains("청년 도약 적금", "7 / 12회 납입", "3.90%");
-        assertThat(page("/deposits")).contains("정기예금 12개월", "3.45%", "만기일");
+    void hardcodedAssetPagesAreGone() throws Exception {
+        // 예금·적금·가상계좌는 예시 데이터뿐이라 뺐다. 로그인해도 주소를 직접 입력하면 404, 메뉴에도 없다
+        for (String path : new String[]{"/deposits", "/savings", "/virtual-accounts", "/virtual-accounts/v1"}) {
+            mvc.perform(get(path).with(user()).accept(MediaType.TEXT_HTML)).andExpect(status().isNotFound());
+        }
+        String html = page("/dashboard");
+        String mega = html.substring(html.indexOf("id=\"mega-menu\""));
+        assertThat(mega).doesNotContain("href=\"/deposits\"", "href=\"/savings\"", "href=\"/virtual-accounts\"",
+                "mega__name\">예금<", "mega__name\">적금<", "mega__name\">가상계좌<");
     }
 
 }

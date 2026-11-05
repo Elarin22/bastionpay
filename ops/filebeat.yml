@@ -31,7 +31,7 @@ processors:
       ignore_failure: true
 
 output.logstash:                   # Graylog Beats 입력은 logstash(lumberjack) 프로토콜을 쓴다
-  hosts: ["192.168.3.17:5044"]
+  hosts: ["192.168.3.16:5044"]
   ssl.enabled: false               # 입력의 TLS 가 꺼져 있다(개발용 내부망)
 
 logging.level: info

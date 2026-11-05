@@ -44,12 +44,19 @@ public class IpBlockFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         String ip = MDC.get("clientIp");
-        if (ip != null && blocked.isBlocked(ip) && !apiAuth.matches(request)) {
+        if (ip != null && !isStaticResource(request) && blocked.isBlocked(ip) && !apiAuth.matches(request)) {
             record(ip, request);
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
         chain.doFilter(request, response);
+    }
+
+    /** 403 에러 페이지가 쓰는 공개 정적 파일. 이것까지 막으면 차단 안내 화면의 CSS 가 깨진다. */
+    private static boolean isStaticResource(HttpServletRequest request) {
+        String path = request.getRequestURI().substring(request.getContextPath().length());
+        return path.startsWith("/css/") || path.startsWith("/js/")
+                || path.startsWith("/img/") || path.startsWith("/fonts/");
     }
 
     private void record(String ip, HttpServletRequest request) {

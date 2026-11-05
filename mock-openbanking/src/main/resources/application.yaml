@@ -15,7 +15,7 @@ spring:
 
   datasource:
     # 가짜 은행 전용 MySQL(mockbank-mysql, 3307). BastionPay DB 와는 별개의 서버다
-    url: jdbc:mysql://localhost:3307/mockbank_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://${MOCKBANK_DB_HOST:localhost}:${MOCKBANK_DB_PORT:3307}/mockbank_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true
     username: ${MOCKBANK_DB_USERNAME:mockbank_app}
     password: ${MOCKBANK_DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
