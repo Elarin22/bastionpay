@@ -77,9 +77,6 @@
           <h2 class="mega__title" id="mega-assets">자산</h2>
           <ul class="mega__list">
             <li><a th:href="@{/accounts}" th:attr="aria-current=${activeNav == 'accounts'} ? 'page'"><span class="mega__name">입출금 계좌</span><span class="mega__desc">연동 계좌 잔액과 거래내역</span></a></li>
-            <li><a th:href="@{/deposits}" th:attr="aria-current=${activeNav == 'deposits'} ? 'page'"><span class="mega__name">예금</span><span class="mega__desc">가입 상품과 만기일</span></a></li>
-            <li><a th:href="@{/savings}" th:attr="aria-current=${activeNav == 'savings'} ? 'page'"><span class="mega__name">적금</span><span class="mega__desc">납입 현황과 만기일</span></a></li>
-            <li><a th:href="@{/virtual-accounts}" th:attr="aria-current=${activeNav == 'virtual'} ? 'page'"><span class="mega__name">가상계좌</span><span class="mega__desc">내 가상계좌와 원장 내역</span></a></li>
           </ul>
         </section>
         <section class="mega__group" aria-labelledby="mega-connect">
