@@ -117,7 +117,7 @@ flowchart LR
 | PC17 | 192.168.3.17 | 10.10.40.17 / SOC40 | Graylog·Wazuh Docker(이전 위치) |
 | Kali | 미확인 | 10.10.60.10 / TEST60 | 외부 공격자 역할 |
 
-![네트워크 토폴로지](images/01_network_topology.png)
+![네트워크 토폴로지](docs/images/01_network_topology.png)
 *pfSense가 관리망과 WEB20·DB30·SOC40 구간을 가운데서 통제하는 구성*
 
 > 학원 물리 스위치는 그대로 두고, TAP 이더넷 프레임을 OpenVPN으로 운반해 pfSense 안에서 802.1Q VLAN과 브리지했습니다. 서비스 PC에는 학원망 주소와 VPN 주소가 함께 있으므로 **VPN만으로 학원망 경로가 사라지지는 않습니다.**
@@ -275,35 +275,35 @@ flowchart LR
 
 **메인** · 서비스 소개와 가상계좌 예시
 
-![메인 화면](images/02_web_main.png)
+![메인 화면](docs/images/02_web_main.png)
 
 **이메일 인증** · 회원가입 시 6자리 코드, 10분 안에 입력
 
-![이메일 인증](images/03_web_email_verify.png)
+![이메일 인증](docs/images/03_web_email_verify.png)
 
 **계좌 연결 휴대폰 인증** · 모의 은행(MockBank)의 오픈뱅킹 OAuth 첫 단계
 
-![계좌 연결 휴대폰 인증](images/04_mockbank_phone_auth.png)
+![계좌 연결 휴대폰 인증](docs/images/04_mockbank_phone_auth.png)
 
 **이체** · 입력 → 확인 → 완료 3단계, 등급별 1회 한도
 
-![이체](images/05_web_transfer.png)
+![이체](docs/images/05_web_transfer.png)
 
 **관리자 보안 대시보드** · 최근 24시간 이벤트 추이, 이체 결과, 로그인 실패 상위 IP
 
-![보안 대시보드](images/06_admin_security_dashboard.png)
+![보안 대시보드](docs/images/06_admin_security_dashboard.png)
 
 **인시던트 티켓** · K6 ADMIN 권한 탈취 시도가 HIGH 티켓으로 생성된 화면
 
-![인시던트 티켓](images/07_admin_incident_ticket.png)
+![인시던트 티켓](docs/images/07_admin_incident_ticket.png)
 
 **IP 차단** · 수동 차단과 n8n SOAR 자동 차단 기록, 자기 차단 방지
 
-![IP 차단](images/08_admin_ip_block.png)
+![IP 차단](docs/images/08_admin_ip_block.png)
 
 **관리자 권한 · 계정 조치** · 허용 목록 밖 관리자 권한 회수(overpriv_test, admin1_test는 시험용 계정)
 
-![관리자 권한](images/09_admin_privilege.png)
+![관리자 권한](docs/images/09_admin_privilege.png)
 
 ---
 
@@ -345,7 +345,7 @@ flowchart LR
 - AES-256-GCM(협상: AES-128-GCM, CHACHA20-POLY1305), 다이제스트 SHA256, TLS auth 키, 압축 거절
 - 클라이언트 원격 주소는 PC13(`192.168.3.13`), 전체 트래픽 VPN 우회(redirect gateway) 없음
 
-![pfSense OpenVPN 상태](images/10_pfsense_openvpn_status.jpeg)
+![pfSense OpenVPN 상태](docs/images/10_pfsense_openvpn_status.jpeg)
 *PC16-WEB20 접속: 실제 주소 192.168.3.16 → 가상 주소 10.10.20.16, AES-256-GCM (DB30·SOC40 접속은 별도 작업 기록에서 확인)*
 
 ### 6.4 방화벽 규칙
@@ -372,7 +372,7 @@ flowchart LR
 
 | 적용 전 (변경 대기) | 적용 후 (규칙 활성) |
 |---|---|
-| ![적용 전](images/11_pfsense_soc40_rules_before.jpeg) | ![적용 후](images/12_pfsense_soc40_rules_after.jpeg) |
+| ![적용 전](docs/images/11_pfsense_soc40_rules_before.jpeg) | ![적용 후](docs/images/12_pfsense_soc40_rules_after.jpeg) |
 
 **NAT**
 - Port Forward(학원망 → WAN 443 → PC16) 1개: **비활성**
@@ -415,15 +415,15 @@ pfSense가 아닌 **PC16 호스트 방화벽**에서 TCP 443의 출발지를 제
 
 ① 기본 차단: Default deny 로그 3건
 
-![기본 차단](images/13_kali_test_1_default_deny.png)
+![기본 차단](docs/images/13_kali_test_1_default_deny.png)
 
 ② 임시 허용: HTTP 200 OK
 
-![임시 허용](images/14_kali_test_2_temp_allow.png)
+![임시 허용](docs/images/14_kali_test_2_temp_allow.png)
 
 ③ 규칙 원복: 임시 규칙 제거 후 다시 Default deny(누적 6건)
 
-![규칙 원복](images/15_kali_test_3_revert.png)
+![규칙 원복](docs/images/15_kali_test_3_revert.png)
 
 ---
 
@@ -474,7 +474,7 @@ pfSense가 아닌 **PC16 호스트 방화벽**에서 TCP 443의 출발지를 제
 | 폐기 | 정상 로그인, 이체 완료 | 처리 안 함 |
 | 권한 탈취 성공 | K6-B | 권한 회수 → 계정 잠금 |
 
-![n8n 워크플로](images/16_n8n_workflow.png)
+![n8n 워크플로](docs/images/16_n8n_workflow.png)
 *n8n 워크플로 전체: 웹훅 2개 → 정규화 → 검증 → 분기 → 티켓·Discord·Telegram·권한 회수·IP 차단*
 
 ### 8.2 Graylog 탐지 규칙 K1~K6
