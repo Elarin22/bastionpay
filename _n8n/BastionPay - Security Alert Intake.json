@@ -18,8 +18,8 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -1168,
-        48
+        -640,
+        560
       ],
       "id": "0bd60999-3698-496b-bdbc-720be2446a2d",
       "name": "Webhook(Graylog)",
@@ -42,8 +42,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        464,
-        240
+        992,
+        832
       ],
       "id": "f3e3e5c6-8eb0-47c2-a16e-43a7cc3405f6",
       "name": "메시지(텔레그램)"
@@ -67,7 +67,7 @@
             },
             {
               "name": "severity",
-              "value": "={{$json.severity === 'CRITICAL' ? 'CRITICAL' : ($json.severity === 'HIGH' ? 'HIGH' : ($json.severity === 'MEDIUM' ? 'MEDIUM' : 'LOW'))}}"
+              "value": "={{ String($json.severity || '').includes('CRITICAL') ? 'CRITICAL' : (String($json.severity || '').includes('HIGH') ? 'HIGH' : (String($json.severity || '').includes('MEDIUM') ? 'MEDIUM' : 'LOW')) }}"
             },
             {
               "name": "hours",
@@ -83,8 +83,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        0,
-        0
+        528,
+        512
       ],
       "id": "6ee63703-896e-49df-a177-0e735de3d37d",
       "name": "인시던트 티켓 생성",
@@ -112,8 +112,8 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -1168,
-        272
+        -640,
+        784
       ],
       "id": "1ebfa554-436d-4dff-8759-8cc9fc4051cf",
       "name": "Webhook(Wazuh)",
@@ -144,7 +144,7 @@
             {
               "id": "e03190b0-ad00-407c-b9c2-c34e5c13641f",
               "name": "severity",
-              "value": "={{ [$json.body?.event?.fields?.severity, $json.body?.backlog?.[0]?.fields?.filebeat_severity, $json.body?.backlog?.[0]?.fields?.severity].find(v => typeof v === 'string' && v && !v.includes('$')) || ($json.body?.event?.priority >= 3 ? 'HIGH' : $json.body?.event?.priority === 2 ? 'MEDIUM' : 'LOW') }}",
+              "value": "={{ String($json.body?.event?.fields?.severity || $json.body?.backlog?.[0]?.fields?.filebeat_severity || ($json.body?.event?.priority >= 3 ? 'HIGH' : ($json.body?.event?.priority === 2 ? 'MEDIUM' : 'LOW')) || 'LOW').replace(/^=/, '').trim().toUpperCase() }}",
               "type": "string"
             },
             {
@@ -208,8 +208,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        -944,
-        48
+        -416,
+        560
       ],
       "id": "740b6223-6b43-4e1b-8230-f2d05f9450f9",
       "name": "Edit Fields(Graylog)"
@@ -321,8 +321,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        -944,
-        272
+        -416,
+        784
       ],
       "id": "e5e6f259-221d-4e91-a3ff-13fca39db932",
       "name": "Edit Fields(Wazuh)"
@@ -355,21 +355,21 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -528,
-        160
+        0,
+        672
       ],
       "id": "2df7976c-1c0b-45c9-b3e1-88ccd57db2d9",
       "name": "If"
     },
     {
       "parameters": {
-        "jsCode": "const KNOWN_EVENT_TYPES = new Set([\n  'LOGIN_FAILURE', 'ACCOUNT_LOCKED',\n  'TRANSFER_REFUNDED', 'TRANSFER_REPLAY', 'TRANSFER_FAILED',\n  'TRANSFER_REQUESTED', 'IP_BLOCKED_REQUEST', 'API_AUTH_FAILED',\n  'AUTHENTICATION_REQUIRED', 'TIER_CHANGED',\n  'IDS_ALERT', 'ids-alert',\n  'SNORT_PORTSCAN', 'snort-portscan',\n]);\nconst INFO_EVENT_TYPES = new Set(['LOGIN_SUCCESS', 'TRANSFER_COMPLETED']);\nconst POST_BLOCK_LOGIN_RULE = '100280';\nconst POST_BLOCK_TRANSFER_RULE = '100281';\n\nconst isIp = value => {\n  if (typeof value !== 'string') return false;\n  const ipv4 = value.match(/^(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})$/);\n  if (ipv4) return ipv4.slice(1).every(part => Number(part) >= 0 && Number(part) <= 255);\n  return /^[0-9a-f:]+$/i.test(value) && value.includes(':');\n};\n\nreturn $input.all()\n  .filter(item => !['ACCESS_DENIED', 'ROLE_REVOKED'].includes(item.json.event_type))\n  .filter(item => {\n    const type = item.json.event_type;\n    const ruleId = String(item.json.wazuh_rule_id || '');\n    // Keep ordinary success events out of the ticket flow. Permit them only\n    // when Wazuh correlated them with a preceding blocked-IP event.\n    if (type === 'LOGIN_SUCCESS') return ruleId === POST_BLOCK_LOGIN_RULE;\n    if (type === 'TRANSFER_COMPLETED') return false;\n    return true;\n  })\n  .map(item => {\n    const ip = item.json.src_ip;\n    const type = item.json.event_type;\n    const ruleId = String(item.json.wazuh_rule_id || '');\n    const knownWazuhCorrelation = [POST_BLOCK_LOGIN_RULE, POST_BLOCK_TRANSFER_RULE].includes(ruleId);\n    const valid = isIp(ip) && (KNOWN_EVENT_TYPES.has(type) || knownWazuhCorrelation || Boolean(ruleId));\n    return { json: { ...item.json, valid } };\n  });"
+        "jsCode": "const KNOWN_EVENT_TYPES = new Set([\n  'LOGIN_FAILURE', 'ACCOUNT_LOCKED',\n  'TRANSFER_REFUNDED', 'TRANSFER_REPLAY', 'TRANSFER_FAILED',\n  'TRANSFER_REQUESTED', 'IP_BLOCKED_REQUEST', 'API_AUTH_FAILED',\n  'AUTHENTICATION_REQUIRED', 'TIER_CHANGED',\n  'ACCESS_DENIED',\n  'IDS_ALERT', 'ids-alert',\n  'SNORT_PORTSCAN', 'snort-portscan',\n]);\nconst INFO_EVENT_TYPES = new Set(['LOGIN_SUCCESS', 'TRANSFER_COMPLETED']);\nconst POST_BLOCK_LOGIN_RULE = '100280';\nconst POST_BLOCK_TRANSFER_RULE = '100281';\n\nconst isIp = value => {\n  if (typeof value !== 'string') return false;\n  const ipv4 = value.match(/^(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})$/);\n  if (ipv4) return ipv4.slice(1).every(part => Number(part) >= 0 && Number(part) <= 255);\n  return /^[0-9a-f:]+$/i.test(value) && value.includes(':');\n};\n\nreturn $input.all()\n  .filter(item => !['ROLE_REVOKED'].includes(item.json.event_type))\n  .filter(item => {\n    const type = item.json.event_type;\n    const ruleId = String(item.json.wazuh_rule_id || '');\n    // 일반 성공 로그는 티켓 흐름에서 제외 (차단 IP 연계 Wazuh 룰일 때만 허용)\n    if (type === 'LOGIN_SUCCESS') return ruleId === POST_BLOCK_LOGIN_RULE;\n    if (type === 'TRANSFER_COMPLETED') return false;\n    return true;\n  })\n  .map(item => {\n    let ip = item.json.src_ip;\n    const type = item.json.event_type;\n    const ruleId = String(item.json.wazuh_rule_id || '');\n\n    // 파일 변조 등 네트워크 IP가 없는 호스트 내부 사건은 웹 서버 자체 IP로 자동 보정\n    if ((!ip || ip === '없음') && ruleId) {\n      ip = '192.168.3.16';\n    }\n\n    // 앞단에서 넘어온 심각도를 그대로 사용 (혹시 붙었을지 모를 '=' 제거 및 공백 정리)\n    const severity = String(item.json.severity || '').replace(/^=/, '').trim().toUpperCase() || 'LOW';\n\n    const knownWazuhCorrelation = [POST_BLOCK_LOGIN_RULE, POST_BLOCK_TRANSFER_RULE].includes(ruleId);\n    const valid = isIp(ip) && (KNOWN_EVENT_TYPES.has(type) || knownWazuhCorrelation || Boolean(ruleId));\n    return { json: { ...item.json, src_ip: ip, severity, valid } };\n  });"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -704,
-        160
+        -176,
+        672
       ],
       "id": "f0fb3aab-3c24-4418-8c32-13f375465475",
       "name": "검증"
@@ -383,8 +383,8 @@
       "type": "n8n-nodes-base.discord",
       "typeVersion": 2,
       "position": [
-        736,
-        -64
+        1264,
+        528
       ],
       "id": "92d6c973-fbce-4146-826d-7c16c320ca01",
       "name": "Discord",
@@ -398,40 +398,6 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 3
-          },
-          "conditions": [
-            {
-              "id": "4b48c7af-79b7-460c-9549-700a7a4f9430",
-              "leftValue": "={{$json.incident.severity}}",
-              "rightValue": "CRITICAL",
-              "operator": {
-                "type": "string",
-                "operation": "equals",
-                "name": "filter.operator.equals"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        240,
-        160
-      ],
-      "id": "fc05bfd9-443d-4f88-aea7-9677ef9cc48b",
-      "name": "If1"
-    },
-    {
-      "parameters": {
         "chatId": "8585033824",
         "text": "={{ $json.text }}",
         "additionalFields": {}
@@ -439,8 +405,8 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        736,
-        240
+        1264,
+        832
       ],
       "id": "ad83f0ca-af70-42bf-aaad-e64e85fee60d",
       "name": "Send a text message",
@@ -467,8 +433,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        736,
-        80
+        1264,
+        672
       ],
       "id": "91d5df95-fd83-4be5-bc42-bbba6819321d",
       "name": "슬랙",
@@ -492,8 +458,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        464,
-        80
+        992,
+        672
       ],
       "id": "e5c1a3e5-d2e5-47a1-a593-a3919622cc1d",
       "name": "메시지(슬랙)",
@@ -527,8 +493,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        -304,
-        0
+        224,
+        512
       ],
       "id": "40da6d10-f7e5-4438-8cd4-a4ae52c84d2d",
       "name": "API_AUTH_FAILED?"
@@ -550,8 +516,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        -144,
-        -224
+        384,
+        288
       ],
       "id": "f6a874e6-ebed-41e6-bdc7-18e564689326",
       "name": "메시지(운영자)"
@@ -573,8 +539,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.5,
       "position": [
-        -352,
-        192
+        176,
+        704
       ],
       "id": "c330567a-ca9c-4966-97c9-f059a2404275",
       "name": "메시지(검토)"
@@ -588,8 +554,8 @@
       "type": "n8n-nodes-base.discord",
       "typeVersion": 2,
       "position": [
-        -128,
-        192
+        400,
+        704
       ],
       "id": "221153ef-c63c-4fea-8124-2ef0f31c942b",
       "name": "Discord(검토)",
@@ -610,8 +576,8 @@
       "type": "n8n-nodes-base.discord",
       "typeVersion": 2,
       "position": [
-        128,
-        -384
+        656,
+        128
       ],
       "id": "b25c0d9d-f54a-46ba-87da-359f0772f55f",
       "name": "Discord(운영자)",
@@ -640,46 +606,11 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        464,
-        -64
+        992,
+        528
       ],
       "id": "3abd3946-4f3c-4993-9b44-ba6487e414b5",
       "name": "메시지(디스코드)"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose",
-            "version": 3
-          },
-          "conditions": [
-            {
-              "id": "e1884e26-3f2b-4fd8-8640-3fb50953d8d9",
-              "leftValue": "=={{ ['MEDIUM', 'HIGH', 'CRITICAL'].includes($json.incident?.severity) }}",
-              "rightValue": "=",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "looseTypeValidation": true,
-        "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        464,
-        -320
-      ],
-      "id": "645a98f3-ae69-4dcc-b905-8183d52be4df",
-      "name": "If(Medium 이상?)"
     },
     {
       "parameters": {
@@ -698,11 +629,172 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        672,
-        -320
+        1264,
+        352
       ],
       "id": "7536435b-13da-43ae-96d0-99fcc159b34f",
       "name": "ip차단",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kR7IpsAxetj9mOJN",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4b48c7af-79b7-460c-9549-700a7a4f9430",
+              "leftValue": "={{$json.incident.severity}}",
+              "rightValue": "CRITICAL",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        768,
+        768
+      ],
+      "id": "fc05bfd9-443d-4f88-aea7-9677ef9cc48b",
+      "name": "If CRITICAL"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e1884e26-3f2b-4fd8-8640-3fb50953d8d9",
+              "leftValue": "={{ ['HIGH', 'CRITICAL'].includes($json.incident?.severity) }}",
+              "rightValue": "=",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        992,
+        368
+      ],
+      "id": "645a98f3-ae69-4dcc-b905-8183d52be4df",
+      "name": "If(High 이상?)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://192.168.3.16/api/admin/revoke",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ member_id: Number($('Edit Fields(Graylog)').item.json.member_id || 1), reason: \"SOAR 자동 대응: 비정상 ADMIN 권한 탈취 감지\" }) }}",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1264,
+        192
+      ],
+      "id": "dcfcf4fc-7396-4d8a-835d-5852ae668e4f",
+      "name": "ADMIN 권한 회수",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kR7IpsAxetj9mOJN",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e1884e26-3f2b-4fd8-8640-3fb50953d8d9",
+              "leftValue": "={{ $json.incident.title }}",
+              "rightValue": "=권한 승급",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        992,
+        208
+      ],
+      "id": "0ff463e9-feb0-48ad-85d2-115eb2960a1f",
+      "name": "If(K6 권한 승급 침해?)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://192.168.3.16/api/admin/lock",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ member_id: Number($('Edit Fields(Graylog)').item.json.member_id || 1), reason: \"SOAR 자동 대응: 권한 승급 계정 동결\" }) }}",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1472,
+        192
+      ],
+      "id": "9b83f577-fd1b-49d3-824d-3d0301b8a7d2",
+      "name": "계정 잠금",
       "credentials": {
         "httpHeaderAuth": {
           "id": "kR7IpsAxetj9mOJN",
@@ -739,7 +831,7 @@
       "main": [
         [
           {
-            "node": "If1",
+            "node": "If CRITICAL",
             "type": "main",
             "index": 0
           },
@@ -754,7 +846,12 @@
             "index": 0
           },
           {
-            "node": "If(Medium 이상?)",
+            "node": "If(High 이상?)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If(K6 권한 승급 침해?)",
             "type": "main",
             "index": 0
           }
@@ -829,18 +926,6 @@
         []
       ]
     },
-    "If1": {
-      "main": [
-        [
-          {
-            "node": "메시지(텔레그램)",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        []
-      ]
-    },
     "메시지(슬랙)": {
       "main": [
         [
@@ -903,7 +988,24 @@
         ]
       ]
     },
-    "If(Medium 이상?)": {
+    "ip차단": {
+      "main": [
+        []
+      ]
+    },
+    "If CRITICAL": {
+      "main": [
+        [
+          {
+            "node": "메시지(텔레그램)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If(High 이상?)": {
       "main": [
         [
           {
@@ -914,9 +1016,26 @@
         ]
       ]
     },
-    "ip차단": {
+    "ADMIN 권한 회수": {
       "main": [
-        []
+        [
+          {
+            "node": "계정 잠금",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If(K6 권한 승급 침해?)": {
+      "main": [
+        [
+          {
+            "node": "ADMIN 권한 회수",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
@@ -929,7 +1048,7 @@
     "callerPolicy": "workflowsFromSameOwner",
     "availableInMCP": false
   },
-  "versionId": "b3f3744c-9b4e-4b34-9615-4130f90ea93e",
+  "versionId": "c21dc989-9148-4b96-80c3-be123a43f990",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "7ae9cc831870022703f4278b5a92deb84a5744f50ea27c99465743dc72ab184b"
