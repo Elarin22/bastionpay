@@ -1,0 +1,107 @@
+{
+  "info": {
+    "_postman_id": "bpay-login-fail-single-request",
+    "name": "BastionPay - 로그인 실패 시연",
+    "description": "BastionPay 보안 관제 시연용 단일 요청 컬렉션입니다.\n\n가상 출발지 IP(192.168.3.201)를 X-Forwarded-For 헤더에 싣고 [Send]를 5회 클릭하여 로그인 실패를 발생시킵니다.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "로그인 실패 시도 (Send 버튼 5회 클릭 시연)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// 매 클릭마다 최신 CSRF 토큰 및 쿠키 자동 획득",
+              "pm.sendRequest({",
+              "    url: pm.variables.get('base_url') + '/login',",
+              "    method: 'GET'",
+              "}, function (err, res) {",
+              "    if (!err) {",
+              "        var match = res.text().match(/name=\"_csrf\"\\s+value=\"([^\"]+)\"/);",
+              "        if (match && match[1]) {",
+              "            pm.variables.set('csrf_token', match[1]);",
+              "        }",
+              "    }",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/x-www-form-urlencoded"
+          },
+          {
+            "key": "X-Forwarded-For",
+            "value": "{{virtual_ip}}",
+            "description": "가상 출발지 IP 지정 (192.168.3.201)"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "email",
+              "value": "{{target_email}}",
+              "type": "text"
+            },
+            {
+              "key": "password",
+              "value": "{{target_password}}",
+              "type": "text"
+            },
+            {
+              "key": "_csrf",
+              "value": "{{csrf_token}}",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/login",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "login"
+          ]
+        },
+        "description": "Send를 1번 누를 때마다 1회씩 로그인 실패가 발생합니다. 총 5번 누르면 Graylog에서 탐지됩니다."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://192.168.3.16",
+      "type": "string"
+    },
+    {
+      "key": "virtual_ip",
+      "value": "192.168.3.201",
+      "type": "string"
+    },
+    {
+      "key": "target_email",
+      "value": "test@test.com",
+      "type": "string"
+    },
+    {
+      "key": "target_password",
+      "value": "WrongPassword123!",
+      "type": "string"
+    },
+    {
+      "key": "csrf_token",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
