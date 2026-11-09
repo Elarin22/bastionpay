@@ -78,7 +78,7 @@ n8n이 BastionPay 웹 서버에 티켓을 만들거나 차단 명령을 내릴 �
 - **검색해서 선택할 종류:** `Header Auth`
 - **Credential 이름:** `Header Auth account`
 - **Name:** `X-API-Key`
-- **Value:** `N8vQ3pL7xR2mK9cD` *(백엔드 `.env` 또는 `application.yaml`의 `SECURITY_API_KEY` 값)*
+- **Value:** `<YOUR_SECURITY_API_KEY>` *(백엔드 `.env` 또는 `application.yaml`의 `SECURITY_API_KEY` 값 입력)*
 
 #### ② Discord 웹훅 (`Discord Webhook`)
 디스코드 채널에 알림을 보내기 위한 주소입니다. (디스코드 채널 설정 ➔ 연동 ➔ 웹후크 ➔ 새 웹후크 ➔ URL 복사)
@@ -109,7 +109,7 @@ CRITICAL 긴급 장애 시 텔레그램 메시지를 보내기 위한 봇 토큰
      - **Credential for Discord Webhook:** 아까 만든 `Discord Webhook account` 선택
    - **`Send a text message` (텔레그램) 노드** 더블클릭:
      - **Credential for Telegram API:** 아까 만든 `Telegram account` 선택
-     - **Chat ID:** 알림을 받을 본인의 텔레그램 숫자 ID 입력 (예: `8585033824`)
+     - **Chat ID:** 알림을 받을 본인의 텔레그램 숫자 ID 입력 (예: `<YOUR_TELEGRAM_CHAT_ID>`)
 5. 우측 상단의 **[Save]**를 누르고, 스위치 토글을 **[Active (초록색)]**로 켜면 즉시 작동합니다!
 
 > **💡 [중요] 팀 운영 정책에 따른 자동 차단(SOAR) 노드 ON/OFF 팁**  
@@ -380,7 +380,7 @@ return $input.all()
 3. **`Send a text message` (`Telegram` 노드):**
    - Credential: `Telegram account`
    - Resource: `Message` / Operation: `Send Message`
-   - **Chat ID:** 본인의 텔레그램 Chat ID 입력 (예: `8585033824`)
+   - **Chat ID:** 본인의 텔레그램 Chat ID 입력 (예: `<YOUR_TELEGRAM_CHAT_ID>`)
    - **Text (`Expression`):** `{{ $json.text }}`
 
 ---

@@ -36,7 +36,7 @@
   - 스크립트에서는 실제 웹 API 호출과 가상 IP GELF 주입을 동시 실행(Dual-Fire)하여 100% 감지되도록 보강했습니다.
 
 ### Q4. 14번 (잠긴 계정) 검증 결과
-- `X-API-Key: N8vQ3pL7xR2mK9cD`는 실제 운영 중인 유효한 정식 키입니다 (`/api/admin/users` 조회 성공으로 확인).
+- `X-API-Key: <YOUR_SECURITY_API_KEY>`는 운영 환경의 정식 키입니다 (`/api/admin/users` 조회 성공으로 확인, `.env`의 `SECURITY_API_KEY` 참조).
 - 주의: `member_id: 1`은 개인 계정이라 백엔드 보호로 잠글 수 없습니다. 반드시 **`test@test.com` (Member ID: 2)**을 잠그도록 스크립트에 안전하게 구성되어 있습니다.
 
 ### Q5. 16번 (Wazuh 100280 상관분석 경보)

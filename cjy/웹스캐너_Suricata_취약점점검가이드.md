@@ -88,8 +88,8 @@ done
 테스트 후 생성된 티켓을 일괄 종료하고 계정/IP 잠금 상태를 초기화할 때 사용합니다.
 
 ```bash
-# 1. 관리자 API 키 변수 선언
-export ADMIN_API_KEY="N8vQ3pL7xR2mK9cD"
+# 1. 관리자 API 키 변수 선언 (환경변수 또는 .env 참조)
+export ADMIN_API_KEY="<YOUR_SECURITY_API_KEY>"
 
 # 2. 열린 티켓 일괄 종료
 curl -k -s -X POST "https://192.168.3.16/api/admin/incidents/close" \

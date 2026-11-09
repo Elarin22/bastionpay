@@ -405,7 +405,7 @@
       },
       {
         "parameters": {
-          "chatId": "8585033824",
+          "chatId": "<YOUR_TELEGRAM_CHAT_ID>",
           "text": "={{ $json.text }}",
           "additionalFields": {}
         },
