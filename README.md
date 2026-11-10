@@ -318,6 +318,17 @@ flowchart LR
 | DNS / NTP | unbound(DNSSEC 활성), ntpd |
 | 추가 패키지 | 없음 |
 
+#### 구축 작업 범위
+
+| 계층 | 수행 내용 |
+|---|---|
+| 가상화 | PC13의 VMware Workstation에 pfSense 전용 VM을 구성하고, WAN(`em0`)·관리망(`em1`)·VLAN trunk(`em2`) 역할을 분리 |
+| 망 분리 | WEB20·DB30·SOC40·SOAR50·TEST60과 예비 MGMT10을 802.1Q VLAN으로 정의하고 각 VLAN의 pfSense 게이트웨이 구성 |
+| 원격 구간 연장 | 물리 스위치 변경 없이 PC16·PC12·PC17을 각각 OpenVPN TAP으로 수용하고, TAP 인터페이스와 서비스 VLAN을 `bridge0~2`로 연결 |
+| 접근 통제 | 관리 GUI, VPN listener, WEB→DB/은행 API, SOC 수집 포트를 출발지·목적지·포트 기준 allowlist로 제한하고 나머지는 기본 차단 |
+| 경로 제어 | PC13 Windows 정적 경로, pfSense의 학원망 반환 정적 경로, Hybrid Outbound NAT를 조합해 비대칭 응답 경로를 보정 |
+| 검증·원복 | VPN 고정 주소, DB·API 연결, 방화벽 pass/block 로그를 확인하고 Kali 임시 허용 규칙은 시험 후 제거하여 기본 차단 상태로 원복 |
+
 ### 6.2 인터페이스와 VLAN
 
 | 이름 | 장치 | IPv4 | 비고 |
@@ -331,6 +342,22 @@ flowchart LR
 | TEST60 | em2.60 | 10.10.60.1/24 | 시험(Kali) |
 | MGMT10 | em2.10 | 없음 | VLAN 정의만 있음 |
 | TAPWEB20 / TAPDB30 / TAPSOC40 | ovpns1~3 | 없음 | 각 VLAN과 브리지(bridge0~2, RSTP) |
+
+#### 패킷 처리 경로
+
+PC16에서 PC12의 MySQL로 가는 경로는 다음과 같습니다.
+
+```text
+PC16 10.10.20.16
+  └─ TAP Ethernet frame → OpenVPN UDP/1194 → pfSense WAN(em0)
+       └─ ovpns1(TAPWEB20) → bridge0 → WEB20(em2.20)
+            └─ pf state/routing → DB30(em2.30) → bridge1 → ovpns2(TAPDB30)
+                 └─ OpenVPN UDP/1195 → PC12 10.10.30.12:3306
+```
+
+- TAP 터널에는 IP 패킷만이 아니라 Ethernet frame이 들어오며, pfSense의 bridge가 이를 해당 VLAN 인터페이스에 연결합니다. VLAN tag는 `em2` trunk로 나갈 때 `em2.20`, `em2.30`, `em2.40`에서 부여됩니다.
+- pfSense 필터는 ingress interface에서 먼저 평가되고, 허용된 TCP 세션은 state table에 등록됩니다. 이후 역방향 패킷은 동일 state에 일치하므로 별도 역방향 허용 규칙 없이 통과합니다.
+- 브리지 멤버에서 유입된 트래픽의 필터 적용 지점을 고려해 WEB20(`opt1`)과 TAPWEB20(`opt7`) 양쪽에 동일한 3306·3307·8090 allowlist를 두었습니다. 이는 포트를 넓게 개방한 것이 아니라, 동일 정책을 가능한 ingress 지점에 각각 적용한 것입니다.
 
 ### 6.3 OpenVPN TAP
 
@@ -381,10 +408,24 @@ flowchart LR
 
 | 항목 | 내용 |
 |---|---|
-| VMnet8 NAT | 호스트 192.168.254.1, pfSense WAN 예약 192.168.254.129 |
+| pfSense 가상 NIC | `em0`=VMnet8 NAT/WAN, `em1`=관리망, `em2`=802.1Q VLAN parent |
+| VMnet8 NAT | 호스트 가상 어댑터 192.168.254.1, pfSense WAN 예약 192.168.254.129 |
 | UDP 전달 | 1194←PC16, 1195←PC12, 1196←PC17 (출발지 제한, TCP 전달 없음) |
 | Windows 방화벽 | UDP 1194/1195/1196 PC별 허용 규칙 활성, 학원망 HTTPS 443 규칙 비활성 |
-| 라우팅 | `10.10.20.16/32 → 10.10.10.1` 영구 경로 |
+| PC13 라우팅 | `10.10.20.16/32 → 10.10.10.1` 영구 경로 |
+| pfSense 반환 라우팅 | `192.168.3.0/24 → 10.10.10.2` (`LAN_PC13_DIRECTWEB`) |
+
+VMnet8은 pfSense WAN에 RFC 1918 주소를 제공하는 내부 NAT 구간이므로 WAN의 **Block private networks**는 사용하지 않고, **Block bogon networks**는 유지했습니다. 즉 이 WAN은 인터넷에 직접 노출된 공인망 경계가 아니라, VMware NAT 뒤의 전송 구간입니다.
+
+#### HTTPS 반환 경로 보정
+
+| 흐름 | 처리 |
+|---|---|
+| PC13 관리 PC → WEB20 | PC13의 `/32` 정적 경로로 `10.10.20.16`을 pfSense LAN 게이트웨이 `10.10.10.1`에 전달 |
+| WEB20 → 학원망 응답 | pfSense의 `192.168.3.0/24` 정적 경로로 PC13 `10.10.10.2`를 next hop으로 사용 |
+| 학원망·관리 PC → WEB20:443 | WEB20 egress에서 source를 `10.10.20.1`로 변환하는 Hybrid Outbound NAT 2개를 적용해 응답이 pfSense state를 역방향으로 통과하도록 고정 |
+
+이 구성은 요청은 pfSense를 통과했지만 응답이 PC16의 물리 NIC(`192.168.3.16`)로 직접 빠지는 비대칭 경로를 방지합니다. 비활성 상태인 WAN TCP 443 Port Forward는 운영 경로로 계산하지 않았으며, 외부 노출은 VMware의 UDP 1194~1196 전달만 사용했습니다.
 
 ### 6.6 PC16 Windows 웹 방화벽 (11/04 16:06)
 
@@ -409,6 +450,7 @@ pfSense가 아닌 **PC16 호스트 방화벽**에서 TCP 443의 출발지를 제
 | 응답 | Graylog 화면 | 학원망 경로 HTTP 200 |
 | 성공 | SOC40 → Graylog 9000 | VPN 연결 당시 pfSense 발신 시험 |
 | 차단→허용→원복 | Kali(10.10.60.10) → 10.10.30.50:8080 | 기본 차단 3건 → 임시 허용 HTTP 200 → 규칙 제거 후 다시 차단 |
+| 차단→도달→비활성화 | Kali(10.10.60.10) → PC16 192.168.3.16:8080 | 기본 차단 → 임시 허용 뒤 TLS listener 도달 → 시험 규칙 비활성화 |
 
 **Kali–Ubuntu 통신 시험** (시험용 허용 규칙과 임시 경로는 시험 뒤 제거)
 
@@ -423,6 +465,22 @@ pfSense가 아닌 **PC16 호스트 방화벽**에서 TCP 443의 출발지를 제
 ③ 규칙 원복: 임시 규칙 제거 후 다시 Default deny(누적 6건)
 
 ![규칙 원복](docs/images/15_kali_test_3_revert.png)
+
+**BastionPay 웹 접근 시험** (TEST60 → PC16 물리 주소 TCP 8080)
+
+① 기본 차단: pfSense의 TEST60 ingress에서 `10.10.60.10 → 192.168.3.16:8080` 흐름이 Default deny에 연속 일치했습니다. SYN 시도가 pfSense까지 도달했지만 허용 state를 만들지 못했음을 보여줍니다.
+
+![TEST60에서 PC16 웹 포트 기본 차단](docs/images/24_web_access_default_deny.png)
+
+② 임시 허용 뒤 종단 도달: Kali의 `curl http://192.168.3.16:8080/` 요청은 TCP 연결을 맺은 뒤 서버에서 `HTTP/1.1 400`과 `This combination of host and port requires TLS`를 받았습니다. 따라서 L3/L4 경로와 PC16의 TLS listener 도달은 확인됐지만, 이 화면만으로 TLS handshake나 BastionPay 페이지의 정상 응답까지 검증했다고 보지는 않습니다.
+
+![임시 허용 뒤 PC16 TLS 리스너 도달](docs/images/25_web_access_tls_required.png)
+
+③ 시험 규칙 비활성화: TEST60의 임시 TCP 8080 Pass 규칙을 비활성화하고 Apply 완료 상태를 확인했습니다. 규칙 행이 남아 있어도 비활성 상태이므로 신규 연결을 허용하는 활성 정책에는 포함되지 않습니다.
+
+![TEST60 임시 허용 규칙 비활성화](docs/images/26_web_access_rule_disabled.png)
+
+> 이 시험의 목적지는 PC16의 물리 주소 `192.168.3.16:8080`입니다. 운영 HTTPS 경로인 `10.10.20.16:443` 검증과 혼동하지 않았으며, 접근 제어 변경 전후의 TCP 도달성만 증거로 사용했습니다.
 
 ---
 
