@@ -476,6 +476,11 @@ pfSense가 아닌 **PC16 호스트 방화벽**에서 TCP 443의 출발지를 제
 ![n8n 워크플로](docs/images/16_n8n_workflow.png)
 *n8n 워크플로 전체: 웹훅 2개 → 정규화 → 검증 → 분기 → 티켓·Discord·Telegram·권한 회수·IP 차단*
 
+| 티켓 생성 시 | 티켓 미생성 · 운영자 알림 | CRITICAL 사건 발생 시 |
+|:---:|:---:|:---:|
+| ![티켓 생성 시](docs/images/20_alert_ticket.png) | ![운영자 알림](docs/images/21_alert_operator.png) | ![CRITICAL 비상 알림](docs/images/22_alert_critical.png) |
+| 공격 경보로 인시던트 티켓이 생성되면 Discord로 티켓 번호·심각도·출발지 IP·조치 내용을 알림 | 서버 API 키 인증 실패는 공격인지 설정 오류인지 사람이 먼저 확인해야 하므로, 티켓을 만들지 않고 운영자에게만 알림 | 티켓 등급이 CRITICAL이면 Discord와 함께 Telegram으로 비상 알림을 추가 발송 |
+
 ### 8.2 Graylog 탐지 규칙 K1~K6
 
 출발지 IP 기준으로 탐지하며, 모두 n8n Graylog 웹훅으로 보냅니다. 킬체인 기준으로 위험도를 재조정했습니다.
@@ -496,6 +501,10 @@ pfSense가 아닌 **PC16 호스트 방화벽**에서 TCP 443의 출발지를 제
 |---|---|
 | 내부 API 인증서 검증 | 웹 서버 인증서를 `NODE_EXTRA_CA_CERTS`로 신뢰 등록. Ignore SSL 없이 호출 |
 | 포트 접근 제한 | 5678 포트를 SIEM PC(192.168.3.16)에서만 허용, 같은 대역 다른 PC는 차단 |
+
+n8n 웹훅 포트(TCP 5678)는 SIEM PC(192.168.3.16)에서만 허용하고, 그 외 IPv4 출발지는 차단 규칙으로 막았다.
+
+![n8n 방화벽 포트 접근 제한 규칙](docs/images/23_n8n_firewall_rule.png)
 
 ### 8.4 작업 기록
 
